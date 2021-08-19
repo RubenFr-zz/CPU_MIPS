@@ -33,8 +33,9 @@ ARCHITECTURE struct OF MIPS_tb IS
    -- Architecture declarations
 
    -- Internal signal declarations
-   SIGNAL SW,LEDG,LEDR :STD_LOGIC_VECTOR (7 DOWNTO 0);
-   SIGNAL HEX0,HEX1,HEX2,HEX3: STD_LOGIC_VECTOR (6 DOWNTO 0);
+   SIGNAL SW,LEDG,LEDR :STD_LOGIC_VECTOR (7 DOWNTO 0) := "00000000";
+   SIGNAL HEX0,HEX1,HEX2,HEX3: STD_LOGIC_VECTOR (6 DOWNTO 0) := "0000000";
+   SIGNAL KEY	 			: STD_LOGIC_VECTOR (2 DOWNTO 0) := "000";
    SIGNAL clock           : STD_LOGIC;
    SIGNAL reset           : STD_LOGIC;
 
@@ -47,6 +48,7 @@ ARCHITECTURE struct OF MIPS_tb IS
 		SW   : IN  STD_LOGIC_VECTOR (7 DOWNTO 0);
 		LEDG : OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
 		LEDR : OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
+		KEY	 : IN  STD_LOGIC_VECTOR (2 DOWNTO 0);
 		HEX0 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
 		HEX1 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
 		HEX2 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
@@ -80,12 +82,22 @@ BEGIN
 		HEX0 => HEX0 ,  -- converted to 7-seg
 		HEX1 =>  HEX1,  -- converted to 7-seg
 		HEX2 =>  HEX2,  -- converted to 7-seg
-		HEX3 => HEX3-- converted to 7-seg	
+		HEX3 => HEX3,	-- converted to 7-seg
+		KEY	 => KEY
       );
    U_1 : MIPS_tester
       PORT MAP (
          clock           => clock,
          reset           => reset
       );
+	  
+	  
+	  
+	tb: process
+	begin
+      wait for 3000 ns;
+      KEY(0) <= '1', '0' after 1035 ns;
+      wait;
+	end process;
 
 END struct;
