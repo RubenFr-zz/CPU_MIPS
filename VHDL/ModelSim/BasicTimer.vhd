@@ -27,7 +27,6 @@ architecture logic of BasicTimer is
 	signal MCLK8 : std_logic;
 
 	signal FLAG : std_logic;
-	signal reset_counter :std_logic := '0';
 begin
 
 	BTIP   <= BTCTL (2 downto 0);
@@ -60,10 +59,6 @@ begin
 		counter when BTHOLD = '1' else
 		counter + '1';
 
-	process (BTCTN)
-	begin
-		reset_counter <= '1'; -- TODO
-	end process;
 	----------------------------------------------------------------------------
 	process (MCLK, reset)
 	begin
@@ -75,9 +70,9 @@ begin
 	end process;
 
 	----------------------------------------------------------------------------
-	process (CLK, reset_counter)
+	process (CLK, reset, BTCNT)
 	begin
-		if reset = '1' then
+		if reset = '1' or BTCNT'event then
 			counter <= BTCNT;
 		elsif rising_edge(CLK) then
 			counter <= next_counter;
