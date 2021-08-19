@@ -7,14 +7,15 @@ ENTITY MIPS IS
 
 	PORT(
 		rst_in          : IN  STD_LOGIC;
-		clk_24MHz             : IN  STD_LOGIC;
-		SW   : IN  STD_LOGIC_VECTOR (7 DOWNTO 0);
-		LEDG : OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
-		LEDR : OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
-		HEX0 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX1 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX2 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX3 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0) -- converted to 7-seg	
+		clk_24MHz       : IN  STD_LOGIC;
+		SW   			: IN  STD_LOGIC_VECTOR (7 DOWNTO 0);
+		KEY	 			: IN  STD_LOGIC_VECTOR (2 DOWNTO 0);
+		LEDG 			: OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
+		LEDR 			: OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
+		HEX0 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
+		HEX1 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
+		HEX2 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
+		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0) -- converted to 7-seg	
 	);
 END MIPS;
 
@@ -31,7 +32,10 @@ ARCHITECTURE structure OF MIPS IS
 			Zero          : IN  STD_LOGIC;
 			read_data_1   : IN  STD_LOGIC_VECTOR( 31 DOWNTO 0 );
 			PC_out        : OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 );
-			clock, reset  : IN  STD_LOGIC
+			clock, reset  : IN  STD_LOGIC;
+			INTR		  : IN 	STD_LOGIC;
+			INTA		  : OUT 	STD_LOGIC;
+			ISR_address	  : IN	STD_LOGIC_VECTOR( 7 DOWNTO 0)		-- 8 BITS
 		);
 	END COMPONENT;
 
@@ -46,7 +50,9 @@ ARCHITECTURE structure OF MIPS IS
 			PC_plus_4        : IN  STD_LOGIC_VECTOR( 9 DOWNTO 0 );
 			RegDst, MemtoReg : IN  STD_LOGIC_VECTOR( 1 DOWNTO 0 );
 			Sign_extend      : OUT STD_LOGIC_VECTOR( 31 DOWNTO 0 );
-			clock, reset     : IN  STD_LOGIC
+			clock, reset     : IN  STD_LOGIC;
+			PC   			 : IN  STD_LOGIC_VECTOR( 9 DOWNTO 0 );
+			GIE_OUT			 : OUT	STD_LOGIC
 		);
 	END COMPONENT;
 
@@ -104,16 +110,50 @@ ARCHITECTURE structure OF MIPS IS
 
 	COMPONENT AddressDecoder is
 		PORT(
-			Address  : IN  STD_LOGIC_VECTOR( 9 DOWNTO 0 );
-			HEX0_ena : OUT STD_LOGIC;
-			HEX1_ena : OUT STD_LOGIC;
-			HEX2_ena : OUT STD_LOGIC;
-			HEX3_ena : OUT STD_LOGIC;
-			LEDG_ena : OUT STD_LOGIC;
-			LEDR_ena : OUT STD_LOGIC;
-			SW_ena   : OUT STD_LOGIC
-		);
+		Address : IN STD_LOGIC_VECTOR( 11 DOWNTO 0 );
+
+		HEX0_ena : OUT STD_LOGIC;
+		HEX1_ena : OUT STD_LOGIC;
+		HEX2_ena : OUT STD_LOGIC;
+		HEX3_ena : OUT STD_LOGIC;
+		LEDG_ena : OUT STD_LOGIC;
+		LEDR_ena : OUT STD_LOGIC;
+		SW_ena   : OUT STD_LOGIC;
+		KEY_ena  : OUT STD_LOGIC;
+		UCTL_ena : OUT STD_LOGIC;
+		RXBF_ena : OUT STD_LOGIC;
+		TXBF_ena : OUT STD_LOGIC;
+		BTCTL_ena: OUT STD_LOGIC;
+		BTCNT_ena: OUT STD_LOGIC;
+		IE_ena 	 : OUT STD_LOGIC;
+		IFG_ena  : OUT STD_LOGIC;
+		TYPE_ena : OUT STD_LOGIC
+	);
 	END COMPONENT;
+	
+	COMPONENT InterruptController is
+	port (
+		-- Interrupt Request (Hardware)
+		RX_irq   : in std_logic; -- RX interrupt request (HW)
+		TX_irq   : in std_logic; -- TX interrupt request (HW)
+		BT_irq   : in std_logic; -- Basic Timer interrupt request (HW)
+		KEY1_irq : in std_logic; -- KEY1 interrupt request (HW)
+		KEY2_irq : in std_logic; -- KEY2 interrupt request (HW)
+		KEY3_irq : in std_logic; -- KEY3 interrupt request (HW)
+
+		-- Interrupt Registers
+		GIE       : in  std_logic;                     -- Global Interrupt Enable (SW) -> $k0(0)
+		IE        : in  std_logic_vector (5 downto 0); -- Interrupt Enable Register (SW)
+		IFG       : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
+		IFG_write : in  std_logic;                     -- Data in IFG ready to be used
+		TYPEx     : out std_logic_vector (7 downto 0); -- Type Register
+
+		-- CPU
+		INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
+		INTR : out std_logic  -- Interrupt request
+	);
+	end COMPONENT InterruptController;
+	
 
 	----------------------------------------------------------------------------
 	-- SIGNAL ADDED
@@ -124,6 +164,20 @@ ARCHITECTURE structure OF MIPS IS
 	SIGNAL HEX3_reg : STD_LOGIC_VECTOR (3 DOWNTO 0) := (OTHERS => '0');
 	SIGNAL LEDG_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
 	SIGNAL LEDR_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	
+	-- Added registers for UART support
+	SIGNAL UCTL_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL RXBF_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL TXBF_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	
+	-- Added registers for timer support
+	SIGNAL BTCTL_reg: STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL BTCNT_reg: STD_LOGIC_VECTOR (31 DOWNTO 0) := (OTHERS => '0');
+	
+	-- Added registers for interrupt support
+	SIGNAL IE_reg   : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL IFG_reg  : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL TYPE_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
 
 	SIGNAL data_from_memory : STD_LOGIC_VECTOR (31 DOWNTO 0);
 
@@ -134,6 +188,8 @@ ARCHITECTURE structure OF MIPS IS
 
 	SIGNAL HEX0_ena, HEX1_ena, HEX2_ena, HEX3_ena : STD_LOGIC;
 	SIGNAL LEDG_ena, LEDR_ena, SW_ena             : STD_LOGIC;
+	SIGNAL KEY_ena, UCTL_ena, RXBF_ena, TXBF_ena, BTCTL_ena, 
+			 BTCNT_ena, IE_ena, IFG_ena, TYPE_ena : STD_LOGIC;
 	SIGNAL rst : STD_LOGIC;
 	SIGNAL clk: std_LOGIC := '0';
 
@@ -174,6 +230,21 @@ ARCHITECTURE structure OF MIPS IS
 	SIGNAL	Memwrite_out    : STD_LOGIC;
 	SIGNAL	Regwrite_out    : STD_LOGIC;
 	
+	-- Added signals for interrupt support
+	
+	SIGNAL GIE			: STD_LOGIC;						-- global interrupt enable - inserted from the IDECODE
+	SIGNAL INTA			: STD_LOGIC;
+	SIGNAL INTR			: STD_LOGIC:='0';
+	SIGNAL BTCTL_W		: STD_LOGIC_VECTOR (7 DOWNTO 0):="00100000";
+	SIGNAL BTCTL_R		: STD_LOGIC_VECTOR (7 DOWNTO 0);
+	SIGNAL BTCNT_W		: STD_LOGIC_VECTOR (31 DOWNTO 0):=(others => '0');
+	SIGNAL BTCNT_R		: STD_LOGIC_VECTOR (31 DOWNTO 0);
+	SIGNAL BTIFG		: STD_LOGIC;
+	SIGNAL Next_Address  : STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL TYPE_from_interrupt  : STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL Final_TYPE  : STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL IFG_write : STD_LOGIC;
+	
 
 BEGIN
 	-- copy important signals to output pins for easy display in Simulator
@@ -189,6 +260,13 @@ BEGIN
 	RegWrite_out    <= RegWrite;
 	MemWrite_out    <= MemWrite;
 	
+	
+	-- make sure next address is ISR address in case of interrupt, or normal address otherwise
+	Next_Address <= 	
+			Final_TYPE	WHEN INTR ='1'-- AND n=0	-- Interrupt address in memory (modelsim/quartus already taken care)
+--			ELSE Addr(9 DOWNTO 2) & "00" WHEN INTR ='1' AND n=1
+			ELSE	ALU_Result(9 DOWNTO 2);-- 	WHEN n=0				-- n=0 - Modelsim
+--			ELSE 	ALU_Result(9 DOWNTO 2) & "00";	
 
 	----------------------------------------------------------------------------
 	-- connect the 5 MIPS components 
@@ -204,6 +282,9 @@ BEGIN
 			Zero          => Zero,
 			read_data_1   => read_data_1,
 			PC_out        => PC,
+			INTR		  => INTR,					-- interrupt request (clock synced)
+			INTA		  => INTA,						-- INTAck output: if 0 then acknowledge back to the interruptController
+			ISR_address	  => data_from_memory(9 DOWNTO 2),	-- the ISR address brought from the dmemory - taken as word
 			clock         => clk,
 			reset         => rst
 		);
@@ -215,6 +296,8 @@ BEGIN
 			Instruction => Instruction,
 			read_data   => read_data,
 			ALU_result  => ALU_result,
+			PC			=> PC,
+			GIE_OUT		=> GIE,
 			PC_plus_4   => PC_plus_4,
 			RegWrite    => RegWrite,
 			MemtoReg    => MemtoReg,
@@ -262,7 +345,7 @@ BEGIN
 	MEM : dmemory
 		PORT MAP (
 			read_data  => data_from_memory,
-			address    => ALU_Result (9 DOWNTO 2),
+			address    => Next_Address,
 			write_data => read_data_2,
 			MemRead    => MemRead,
 			Memwrite   => write_to_memory_ena,
@@ -299,26 +382,82 @@ BEGIN
 
 	AddDec : AddressDecoder
 		PORT MAP (
-			Address  => ALU_Result (11 DOWNTO 2),
+			Address  => ALU_Result (11 DOWNTO 0),
 			HEX0_ena => HEX0_ena,
 			HEX1_ena => HEX1_ena,
 			HEX2_ena => HEX2_ena,
 			HEX3_ena => HEX3_ena,
 			LEDG_ena => LEDG_ena,
 			LEDR_ena => LEDR_ena,
-			SW_ena   => SW_ena
+			SW_ena   => SW_ena,
+			KEY_ena  => KEY_ena,  
+			UCTL_ena => UCTL_ena, 
+			RXBF_ena => RXBF_ena, 
+			TXBF_ena => TXBF_ena, 
+			BTCTL_ena=> BTCTL_ena,
+			BTCNT_ena=> BTCNT_ena,
+			IE_ena 	 => IE_ena, 	 
+			IFG_ena  => IFG_ena,  
+			TYPE_ena => TYPE_ena 
+			
+			
+			
+		);
+		
+	IntrptControl : InterruptController
+		PORT MAP (
+			RX_irq   		=>	'0',		--TODO: PUT UART AND TIMER INTERRUPTS
+		    TX_irq          =>	'0',
+		    BT_irq          =>	'0',
+		    KEY1_irq        =>	KEY(0),
+		    KEY2_irq        =>  KEY(1),
+		    KEY3_irq        =>  KEY(2),
+		    GIE             =>	GIE,
+		    IE              =>	IE_reg(5 DOWNTO 0),
+		    IFG             =>	IFG_reg(5 DOWNTO 0),
+		    IFG_write       =>	IFG_write,
+		    TYPEx           =>	TYPE_from_interrupt,
+		    INTA 	        =>	INTA,
+		    INTR 	        =>	INTR
+		
+			
 		);
 
 	----------------------------------------------------------------------------
-	read_data <= X"000000" & SW        WHEN SW_ena = '1' AND MemRead = '1' ELSE (OTHERS    => 'Z'); -- SW
-	read_data <= X"000000" & LEDG_reg  WHEN LEDG_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       -- LEDG
-	read_data <= X"000000" & LEDR_reg  WHEN LEDR_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       -- LEDR
-	read_data <= X"0000000" & HEX0_reg WHEN HEX0_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');        -- HEX0
-	read_data <= X"0000000" & HEX1_reg WHEN HEX1_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');        -- HEX1
-	read_data <= X"0000000" & HEX2_reg WHEN HEX2_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');        -- HEX2
-	read_data <= X"0000000" & HEX3_reg WHEN HEX3_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');        -- HEX3
+	--READ FROM I/O REGISTERS
+	----------------------------------------------------------------------------
+	read_data <= X"000000" & SW        		WHEN SW_ena = '1' AND MemRead = '1' ELSE (OTHERS    => 'Z');		 -- SW
+	read_data <= X"000000" & LEDG_reg  		WHEN LEDG_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');      	 -- LEDG
+	read_data <= X"000000" & LEDR_reg  		WHEN LEDR_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');      	 -- LEDR
+	read_data <= X"0000000" & HEX0_reg 		WHEN HEX0_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- HEX0
+	read_data <= X"0000000" & HEX1_reg 		WHEN HEX1_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- HEX1
+	read_data <= X"0000000" & HEX2_reg 		WHEN HEX2_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- HEX2
+	read_data <= X"0000000" & HEX3_reg 		WHEN HEX3_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- HEX3
+	
+	-- read data from keys when required
+	read_data <= X"0000000" & B"0" & KEY 	WHEN KEY_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- KEY
+	
+	-- read data from UART when required
+	read_data <= X"000000" & UCTL_reg 		WHEN UCTL_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- UCTL
+	read_data <= X"000000" & RXBF_reg 		WHEN RXBF_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- RXBF
+	read_data <= X"000000" & TXBF_reg 		WHEN TXBF_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- TXBF
+	
+	-- read data from counter when required
+	read_data <= X"000000" & BTCTL_reg 		WHEN BTCTL_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');        -- BTCTL
+	read_data <= BTCNT_reg 					WHEN BTCNT_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');        -- BTCNT
+	
+	-- read data from interrupt controller when required
+	read_data <= X"000000" & IE_reg 		WHEN IE_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- IE
+	read_data <= X"000000" & IFG_reg 		WHEN IFG_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- IFG
+	read_data <= X"000000" & TYPE_reg 		WHEN TYPE_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- TYPE
+	
+	
+	-- read data from memory as usual when nothing else is required
 	read_data <= data_from_memory      WHEN MEM_IO = '0' AND MemRead = '1' ELSE (OTHERS  => 'Z');   -- DMEMORY
 
+	----------------------------------------------------------------------------
+	--WRITE TO I/O REGISTERS
+	----------------------------------------------------------------------------
 	PROCESS (clk)
 	BEGIN
 		IF falling_edge(clk) THEN
@@ -335,16 +474,39 @@ BEGIN
 					HEX2_reg <= read_data_2(3 DOWNTO 0);
 				ELSIF HEX3_ena = '1' THEN
 					HEX3_reg <= read_data_2(3 DOWNTO 0);
+				ELSIF UCTL_ena = '1' THEN
+					UCTL_reg <= read_data_2(7 DOWNTO 0);
+				ELSIF RXBF_ena = '1' THEN
+					RXBF_reg <= read_data_2(7 DOWNTO 0);
+				ELSIF TXBF_ena = '1' THEN
+					TXBF_reg <= read_data_2(7 DOWNTO 0);
+				ELSIF BTCTL_ena = '1' THEN
+					BTCTL_reg <= read_data_2(7 DOWNTO 0);
+				ELSIF BTCNT_ena = '1' THEN
+					BTCNT_reg <= read_data_2(31 DOWNTO 0);
+				ELSIF IE_ena = '1' THEN
+					IE_reg <= read_data_2(7 DOWNTO 0);
+				ELSIF IFG_ena = '1' THEN
+					IFG_reg <= read_data_2(7 DOWNTO 0);
+				ELSIF TYPE_ena = '1' THEN
+					TYPE_reg <= read_data_2(7 DOWNTO 0);	
 				END IF;
 			END IF;
 		END IF;
 	END PROCESS;
+
 
 	MEM_IO     <= ALU_Result(11); -- Read from 0: Memory, 1: IO
 	write_to_memory_ena <= MemWrite AND (NOT MEM_IO) AND rst_in;
 
 	LEDG <= LEDG_reg;
 	LEDR <= LEDR_reg;
+	
+	-- TODO: handle changing TYPE_reg when handling interrupts and not only on write command from SW
+	-- Final_TYPE <= TYPE_from_interrupt WHEN INTR = '1' ELSE TYPE_reg;
+	Final_TYPE <= TYPE_from_interrupt;
+	
+	IFG_write <= IFG_ena and MemWrite;
 	
 	rst <= not rst_in;
 	

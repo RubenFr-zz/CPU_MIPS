@@ -18,7 +18,10 @@ ENTITY Ifetch IS
 		Zero          : IN  STD_LOGIC;
 		PC_out        : OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 );
 		read_data_1   : IN  STD_LOGIC_VECTOR( 31 DOWNTO 0 );
-		clock, reset  : IN  STD_LOGIC
+		clock, reset  : IN  STD_LOGIC;
+		INTR		  : IN 	STD_LOGIC;
+		INTA		  : OUT 	STD_LOGIC;
+		ISR_address	  : IN	STD_LOGIC_VECTOR( 7 DOWNTO 0)		-- 8 BITS
 	);
 END Ifetch;
 
@@ -26,6 +29,8 @@ ARCHITECTURE behavior OF Ifetch IS
 	SIGNAL PC, PC_plus_4      	: STD_LOGIC_VECTOR( 9 DOWNTO 0 );
 	SIGNAL next_PC, Mem_Addr	: STD_LOGIC_VECTOR( 7 DOWNTO 0 );
 	SIGNAL Instruct   			: STD_LOGIC_VECTOR( 31 DOWNTO 0 );
+--	SIGNAL INTR_old				: STD_LOGIC;
+	signal INTRx :std_logic;
 BEGIN
 
 	--------------------------------------------------------------------------------
@@ -38,7 +43,7 @@ BEGIN
 			widthad_a              => 8,
 			lpm_type               => "altsyncram",
 			outdata_reg_a          => "UNREGISTERED",
-			init_file              => "program.hex",
+			init_file              => "C:\final_lab_cpu\developement\stuff from moodle\test2\program.hex",
 			intended_device_family => "Cyclone"
 		)
 		PORT MAP (
@@ -46,6 +51,13 @@ BEGIN
 			address_a => Mem_Addr,
 			q_a       => Instruct );
 	----------------------------------------------------------------------------
+	
+	-- Instruction select - if interrupt is '1' then opcode=31, else the fetched one
+	Instruction <= 	X"FC000000" WHEN 	INTRx = '1'
+								ELSE	Instruct;
+	
+	
+	
 	-- Instructions always start on word address - not byte
 	PC(1 DOWNTO 0) <= "00";
 
@@ -68,10 +80,37 @@ BEGIN
 		Add_result                WHEN ((Jump = '1') AND (Instruct(31 DOWNTO 26) = "000010")) ELSE						--j
 		Add_result                WHEN ((Jump = '1') AND (Instruct(31 DOWNTO 26) = "000011")) ELSE						--jal
 		read_data_1( 9 DOWNTO 2 ) WHEN ((JumpReg = '1') AND (Instruct(5 DOWNTO 0) = "001000") AND (Instruct(31 DOWNTO 26) = "000000" )) ELSE	--jr
+		ISR_address				  WHEN INTR = '1'  	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
 		PC_plus_4( 9 DOWNTO 2 );
 
-	-- Assign Instruction
-	Instruction <= Instruct when reset = '0' else (OTHERS => '0');
+
+	-- -- Acknowledge to the InterruptController
+	-- process( clock, reset )
+		-- begin
+			-- if reset = '1' then
+				-- INTR_old <= '0';
+			-- elsif rising_edge(clock) then
+				-- INTR_old <= INTR;
+			-- end if;
+	-- end process;
+	
+	-- Acknowledge to the InterruptController
+	process( clock, reset )
+		begin
+			if reset = '1' then
+				INTA <= '1';
+			elsif rising_edge(clock) then
+				IF INTR = '1' THEN
+					INTA <= '0';
+				ELSIF Instruct = x"03600008" THEN
+					INTA <= '1';
+				END IF;
+			end if;
+	end process;
+	
+	-- INTA <=  '0' WHEN INTR_old = '0' AND INTR = '1'
+		-- ELSE '1';
+
 
 	PROCESS
 	BEGIN
@@ -82,6 +121,12 @@ BEGIN
 			PC( 9 DOWNTO 2 ) <= next_PC;
 		END IF;
 	END PROCESS;
+	
+	process
+	begin
+		WAIT UNTIL ( clock'EVENT ) AND ( clock = '1' );
+		INTRx <= INTR;
+	end process;
 END behavior;
 
 
