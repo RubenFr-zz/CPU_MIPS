@@ -78,7 +78,7 @@ begin
 	----------------------------------------------------------------------------
 	-- Interrupt Flag (Request)
 	----------------------------------------------------------------------------
-	process (RX_irq, IFG_write)
+	process (RX_irq, IFG_write, RXIFG, IFG(0))
 	begin
 		if IFG_write = '1' then
 			RXIFG <= RXIFG and IFG(0);
@@ -87,7 +87,7 @@ begin
 		end if;
 	end process;
 
-	process (TX_irq, IFG_write)
+	process (TX_irq, IFG_write, TXIFG, IFG(1))
 	begin
 		if IFG_write = '1' then
 			TXIFG <= TXIFG and IFG(1);
@@ -96,7 +96,7 @@ begin
 		end if;
 	end process;
 
-	process (BT_irq, IFG_write)
+	process (BT_irq, IFG_write, BTIFG, IFG(2))
 	begin
 		if IFG_write = '1' then
 			BTIFG <= BTIFG and IFG(2);
@@ -105,7 +105,7 @@ begin
 		end if;
 	end process;
 
-	process (KEY1_irq, IFG_write)
+	process (KEY1_irq, IFG_write, KEY1IFG, IFG(3))
 	begin
 		if IFG_write = '1' then
 			KEY1IFG <= KEY1IFG and IFG(3);
@@ -114,7 +114,7 @@ begin
 		end if;
 	end process;
 
-	process (KEY2_irq, IFG_write)
+	process (KEY2_irq, IFG_write, KEY2IFG, IFG(4))
 	begin
 		if IFG_write = '1' then
 			KEY2IFG <= KEY2IFG and IFG(4);
@@ -123,7 +123,7 @@ begin
 		end if;
 	end process;
 
-	process (KEY3_irq, IFG_write)
+	process (KEY3_irq, IFG_write, KEY3IFG, IFG(5))
 	begin
 		if IFG_write = '1' then
 			KEY3IFG <= KEY3IFG and IFG(5);
