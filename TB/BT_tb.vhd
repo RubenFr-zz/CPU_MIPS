@@ -56,8 +56,10 @@ BEGIN
       wait for 175 ns;
       reset <= '0';
       wait until rising_edge(clk);
-      BTCNT <= X"00000005";
       BTIP <= "001";
+      wait until rising_edge(clk);
+      BTCNT <= X"00000005";
+      wait until rising_edge(clk);
       BTSSEL <= "01";
       wait until rising_edge(clk);
       BTHOLD <= '0';
