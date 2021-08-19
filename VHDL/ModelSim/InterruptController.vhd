@@ -28,8 +28,6 @@ end entity InterruptController;
 
 --------------------------------------------------------------------------------
 architecture logic of InterruptController is
-	constant all_zeros : std_logic_vector(IFGx'range) := (others => '0');
-
 	signal GIEx : std_logic;                     -- Global Interrup Enable (HW)
 	signal IFGx : std_logic_vector (7 downto 0); -- Interrupt Flag Register (HW)
 
@@ -48,6 +46,8 @@ architecture logic of InterruptController is
 	signal KEY3IFG : std_logic := '0'; -- KEY3 interrupt flag
 
 	signal FLAG : std_logic;
+
+	constant all_zeros : std_logic_vector(IFGx'range) := (others => '0');
 begin
 
 	GIEx  <= GIE and INTA;
