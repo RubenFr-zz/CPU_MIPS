@@ -16,21 +16,26 @@ entity InterruptController is
 		-- Interrupt Registers
 		GIE       : in  std_logic;                     -- Global Interrupt Enable (SW) -> $k0(0)
 		IE        : in  std_logic_vector (5 downto 0); -- Interrupt Enable Register (SW)
-		IFG       : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
+		IFG_in       : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
+		IFG_out       : out  std_logic_vector (7 downto 0); -- Interrupt Flag Register (SW)
 		IFG_write : in  std_logic;                     -- Data in IFG ready to be used
 		TYPEx     : out std_logic_vector (7 downto 0); -- Type Register
 
 		-- CPU
 		INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
-		INTR : out std_logic  -- Interrupt request
+		INTR : out std_logic;  -- Interrupt request
+		
+		-- test
+		clr_BT : in boolean
 	);
 end entity InterruptController;
 
 --------------------------------------------------------------------------------
 architecture logic of InterruptController is
 	signal GIEx : std_logic;                     -- Global Interrup Enable (HW)
-	signal IFGx : std_logic_vector (7 downto 0); -- Interrupt Flag Register (HW)
-
+	signal IFGx : std_logic_vector (5 downto 0);                     -- Global Interrup Enable (HW)
+	signal TYPE_reg : std_logic_vector (7 downto 0);
+	
 	signal RXIE   : std_logic := '0'; -- RX interrupt enable
 	signal TXIE   : std_logic := '0'; -- TX interrupt enable
 	signal BTIE   : std_logic := '0'; -- Basic Timer interrupt enable
@@ -46,23 +51,31 @@ architecture logic of InterruptController is
 	signal KEY3IFG : std_logic := '0'; -- KEY3 interrupt flag
 
 	signal FLAG : std_logic;
-
-	constant all_zeros : std_logic_vector(IFGx'range) := (others => '0');
+	
+	-- Added for clearing BT
+	signal clr_BT_irq, BTIFG_clr  : std_logic;
+	
 begin
 
 	GIEx  <= GIE and INTA;
-	IFGx  <= "00" & KEY3IFG & KEY2IFG & KEY1IFG & BTIFG & TXIFG & RXIFG;
-	TYPEx <=
+	IFG_out  <= "00" & IFGx;
+	IFGx  <= KEY3IFG & KEY2IFG & KEY1IFG & BTIFG & TXIFG & RXIFG;
+	
+	TYPEx <= TYPE_reg;
+	TYPE_reg <=
 		X"08" when RXIFG = '1' else
 		X"0C" when TXIFG = '1' else
 		X"10" when BTIFG = '1' else
 		X"14" when KEY1IFG = '1' else
 		X"18" when KEY2IFG = '1' else
 		X"1C" when KEY3IFG = '1' else
-		(others => 'Z');
+		X"ff";
 
-	FLAG <= '1' when IFGx /= all_zeros else '0';
+	FLAG <= '0' when IFGx = "00000" else '1';
 	INTR <= FLAG and GIEx;
+	
+	clr_BT_irq <= '1' when IFG_write = '1' or clr_BT else '0';
+	BTIFG_clr <= IFG_in(2) when IFG_write = '1' else '0';
 
 	----------------------------------------------------------------------------
 	process (IE)
@@ -78,55 +91,55 @@ begin
 	----------------------------------------------------------------------------
 	-- Interrupt Flag (Request)
 	----------------------------------------------------------------------------
-	process (RX_irq, IFG_write, RXIFG, IFG(0))
+	process (RX_irq, IFG_write, IFG_in(0))
 	begin
 		if IFG_write = '1' then
-			RXIFG <= RXIFG and IFG(0);
+			RXIFG <= IFG_in(0);
 		elsif rising_edge(RX_irq) then
 			RXIFG <= RXIE;
 		end if;
 	end process;
 
-	process (TX_irq, IFG_write, TXIFG, IFG(1))
+	process (TX_irq, IFG_write, IFG_in(1))
 	begin
 		if IFG_write = '1' then
-			TXIFG <= TXIFG and IFG(1);
+			TXIFG <= IFG_in(1);
 		elsif rising_edge(TX_irq) then
 			TXIFG <= TXIE;
 		end if;
 	end process;
 
-	process (BT_irq, IFG_write, BTIFG, IFG(2))
+	process (BT_irq, clr_BT_irq)
 	begin
-		if IFG_write = '1' then
-			BTIFG <= BTIFG and IFG(2);
+		if clr_BT_irq = '1' then
+			BTIFG <= BTIFG_clr;
 		elsif rising_edge(BT_irq) then
 			BTIFG <= BTIE;
 		end if;
 	end process;
 
-	process (KEY1_irq, IFG_write, KEY1IFG, IFG(3))
+	process (KEY1_irq, IFG_write, IFG_in(3))
 	begin
 		if IFG_write = '1' then
-			KEY1IFG <= KEY1IFG and IFG(3);
+			KEY1IFG <= IFG_in(3);
 		elsif rising_edge(KEY1_irq) then
 			KEY1IFG <= KEY1IE;
 		end if;
 	end process;
 
-	process (KEY2_irq, IFG_write, KEY2IFG, IFG(4))
+	process (KEY2_irq, IFG_write, IFG_in(4))
 	begin
 		if IFG_write = '1' then
-			KEY2IFG <= KEY2IFG and IFG(4);
+			KEY2IFG <= IFG_in(4);
 		elsif rising_edge(KEY2_irq) then
 			KEY2IFG <= KEY2IE;
 		end if;
 	end process;
 
-	process (KEY3_irq, IFG_write, KEY3IFG, IFG(5))
+	process (KEY3_irq, IFG_write, IFG_in(5))
 	begin
 		if IFG_write = '1' then
-			KEY3IFG <= KEY3IFG and IFG(5);
+			KEY3IFG <= IFG_in(5);
 		elsif rising_edge(KEY3_irq) then
 			KEY3IFG <= KEY3IE;
 		end if;

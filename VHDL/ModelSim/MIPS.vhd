@@ -15,7 +15,10 @@ ENTITY MIPS IS
 		HEX0 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
 		HEX1 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
 		HEX2 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0) -- converted to 7-seg	
+		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0); -- converted to 7-seg	
+		-- UART INTERFACE
+        UART_TXD     : out std_logic; -- serial transmit data
+        UART_RXD     : in  std_logic -- serial receive data
 	);
 END MIPS;
 
@@ -34,7 +37,7 @@ ARCHITECTURE structure OF MIPS IS
 			PC_out        : OUT STD_LOGIC_VECTOR( 9 DOWNTO 0 );
 			clock, reset  : IN  STD_LOGIC;
 			INTR		  : IN 	STD_LOGIC;
-			INTA		  : OUT 	STD_LOGIC;
+			INTA		  : buffer 	STD_LOGIC;
 			ISR_address	  : IN	STD_LOGIC_VECTOR( 7 DOWNTO 0)		-- 8 BITS
 		);
 	END COMPONENT;
@@ -144,16 +147,29 @@ ARCHITECTURE structure OF MIPS IS
 		-- Interrupt Registers
 		GIE       : in  std_logic;                     -- Global Interrupt Enable (SW) -> $k0(0)
 		IE        : in  std_logic_vector (5 downto 0); -- Interrupt Enable Register (SW)
-		IFG       : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
+		IFG_in       : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
+		IFG_out       : out  std_logic_vector (7 downto 0); -- Interrupt Flag Register (SW)
 		IFG_write : in  std_logic;                     -- Data in IFG ready to be used
-		TYPEx     : out std_logic_vector (7 downto 0); -- Type Register
+		TYPEx    : out std_logic_vector (7 downto 0); -- Type Register
 
 		-- CPU
 		INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
-		INTR : out std_logic  -- Interrupt request
+		INTR : out std_logic;  -- Interrupt request
+		
+		-- Added to clear BTIFG
+		clr_BT : in boolean
 	);
 	end COMPONENT InterruptController;
 	
+	
+	COMPONENT BasicTimer is
+	PORT (
+		MCLK, reset : in  std_logic;
+		BTCTL       : in  std_logic_vector (7 downto 0);  -- Basic Timer Control Register
+		BTCNT       : in  std_logic_vector (31 downto 0); -- Basic Timer Counter (init)
+		BTIFG       : out std_logic                       -- Basic Timer Flag
+	);
+	end COMPONENT BasicTimer;
 
 	----------------------------------------------------------------------------
 	-- SIGNAL ADDED
@@ -176,7 +192,8 @@ ARCHITECTURE structure OF MIPS IS
 	
 	-- Added registers for interrupt support
 	SIGNAL IE_reg   : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
-	SIGNAL IFG_reg  : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL IFG_in  : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
+	SIGNAL IFG_out  : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
 	SIGNAL TYPE_reg : STD_LOGIC_VECTOR (7 DOWNTO 0) := (OTHERS => '0');
 
 	SIGNAL data_from_memory : STD_LOGIC_VECTOR (31 DOWNTO 0);
@@ -232,19 +249,20 @@ ARCHITECTURE structure OF MIPS IS
 	
 	-- Added signals for interrupt support
 	
-	SIGNAL GIE			: STD_LOGIC;						-- global interrupt enable - inserted from the IDECODE
-	SIGNAL INTA			: STD_LOGIC;
-	SIGNAL INTR			: STD_LOGIC:='0';
-	SIGNAL BTCTL_W		: STD_LOGIC_VECTOR (7 DOWNTO 0):="00100000";
-	SIGNAL BTCTL_R		: STD_LOGIC_VECTOR (7 DOWNTO 0);
-	SIGNAL BTCNT_W		: STD_LOGIC_VECTOR (31 DOWNTO 0):=(others => '0');
-	SIGNAL BTCNT_R		: STD_LOGIC_VECTOR (31 DOWNTO 0);
-	SIGNAL BTIFG		: STD_LOGIC;
-	SIGNAL Next_Address  : STD_LOGIC_VECTOR(7 DOWNTO 0);
-	SIGNAL TYPE_from_interrupt  : STD_LOGIC_VECTOR(7 DOWNTO 0);
-	SIGNAL Final_TYPE  : STD_LOGIC_VECTOR(7 DOWNTO 0);
-	SIGNAL IFG_write : STD_LOGIC;
+	SIGNAL GIE					: STD_LOGIC;						-- global interrupt enable - inserted from the IDECODE
+	SIGNAL INTA					: STD_LOGIC;
+	SIGNAL INTR					: STD_LOGIC  := '0';
+	SIGNAL Next_Address 		: STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL IFG_write 			: STD_LOGIC;
+	signal INTRx :std_logic := '0';
 	
+	-- Added signals for timer support
+	
+	SIGNAL TimerFlag			: STD_LOGIC;
+	
+	-- Added to clear BTIFG
+	signal clr_BT : boolean := false;
+
 
 BEGIN
 	-- copy important signals to output pins for easy display in Simulator
@@ -263,10 +281,8 @@ BEGIN
 	
 	-- make sure next address is ISR address in case of interrupt, or normal address otherwise
 	Next_Address <= 	
-			Final_TYPE	WHEN INTR ='1'-- AND n=0	-- Interrupt address in memory (modelsim/quartus already taken care)
---			ELSE Addr(9 DOWNTO 2) & "00" WHEN INTR ='1' AND n=1
+			"00" & TYPE_reg(7 DOWNTO 2)	WHEN INTRx = '1'-- AND n=0	-- Interrupt address in memory (modelsim/quartus already taken care)
 			ELSE	ALU_Result(9 DOWNTO 2);-- 	WHEN n=0				-- n=0 - Modelsim
---			ELSE 	ALU_Result(9 DOWNTO 2) & "00";	
 
 	----------------------------------------------------------------------------
 	-- connect the 5 MIPS components 
@@ -282,7 +298,7 @@ BEGIN
 			Zero          => Zero,
 			read_data_1   => read_data_1,
 			PC_out        => PC,
-			INTR		  => INTR,					-- interrupt request (clock synced)
+			INTR		  => INTRx,					-- interrupt request (clock synced)
 			INTA		  => INTA,						-- INTAck output: if 0 then acknowledge back to the interruptController
 			ISR_address	  => data_from_memory(9 DOWNTO 2),	-- the ISR address brought from the dmemory - taken as word
 			clock         => clk,
@@ -406,22 +422,32 @@ BEGIN
 		
 	IntrptControl : InterruptController
 		PORT MAP (
-			RX_irq   		=>	'0',		--TODO: PUT UART AND TIMER INTERRUPTS
+			RX_irq   		=>	'0',		--TODO: PUT UART INTERRUPTS
 		    TX_irq          =>	'0',
-		    BT_irq          =>	'0',
+		    BT_irq          =>	TimerFlag,
 		    KEY1_irq        =>	KEY(0),
 		    KEY2_irq        =>  KEY(1),
 		    KEY3_irq        =>  KEY(2),
 		    GIE             =>	GIE,
 		    IE              =>	IE_reg(5 DOWNTO 0),
-		    IFG             =>	IFG_reg(5 DOWNTO 0),
+		    IFG_in          =>	IFG_in(5 DOWNTO 0),
+		    IFG_out         =>	IFG_out,
 		    IFG_write       =>	IFG_write,
-		    TYPEx           =>	TYPE_from_interrupt,
+		    TYPEx           =>	TYPE_reg,
 		    INTA 	        =>	INTA,
-		    INTR 	        =>	INTR
+		    INTR 	        =>	INTR,
 		
-			
+			clr_BT			=> clr_BT
 		);
+
+	Timer : BasicTimer
+	PORT MAP (
+		MCLK 	=>	clk,
+		reset   =>	rst,
+		BTCTL   =>  BTCTL_reg,		   -- Basic Timer Control Register
+		BTCNT   =>  BTCNT_reg,   -- Basic Timer Counter (init)
+		BTIFG   =>  TimerFlag   -- Basic Timer Flag
+	);
 
 	----------------------------------------------------------------------------
 	--READ FROM I/O REGISTERS
@@ -448,7 +474,7 @@ BEGIN
 	
 	-- read data from interrupt controller when required
 	read_data <= X"000000" & IE_reg 		WHEN IE_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- IE
-	read_data <= X"000000" & IFG_reg 		WHEN IFG_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- IFG
+	read_data <= X"000000" & IFG_out		WHEN IFG_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- IFG
 	read_data <= X"000000" & TYPE_reg 		WHEN TYPE_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- TYPE
 	
 	
@@ -475,9 +501,7 @@ BEGIN
 				ELSIF HEX3_ena = '1' THEN
 					HEX3_reg <= read_data_2(3 DOWNTO 0);
 				ELSIF UCTL_ena = '1' THEN
-					UCTL_reg <= read_data_2(7 DOWNTO 0);
-				ELSIF RXBF_ena = '1' THEN
-					RXBF_reg <= read_data_2(7 DOWNTO 0);
+					UCTL_reg(3 downto 0) <= read_data_2(3 DOWNTO 0);
 				ELSIF TXBF_ena = '1' THEN
 					TXBF_reg <= read_data_2(7 DOWNTO 0);
 				ELSIF BTCTL_ena = '1' THEN
@@ -487,14 +511,11 @@ BEGIN
 				ELSIF IE_ena = '1' THEN
 					IE_reg <= read_data_2(7 DOWNTO 0);
 				ELSIF IFG_ena = '1' THEN
-					IFG_reg <= read_data_2(7 DOWNTO 0);
-				ELSIF TYPE_ena = '1' THEN
-					TYPE_reg <= read_data_2(7 DOWNTO 0);	
+					IFG_in <= read_data_2(7 DOWNTO 0);
 				END IF;
 			END IF;
 		END IF;
 	END PROCESS;
-
 
 	MEM_IO     <= ALU_Result(11); -- Read from 0: Memory, 1: IO
 	write_to_memory_ena <= MemWrite AND (NOT MEM_IO) AND rst_in;
@@ -502,13 +523,17 @@ BEGIN
 	LEDG <= LEDG_reg;
 	LEDR <= LEDR_reg;
 	
-	-- TODO: handle changing TYPE_reg when handling interrupts and not only on write command from SW
-	-- Final_TYPE <= TYPE_from_interrupt WHEN INTR = '1' ELSE TYPE_reg;
-	Final_TYPE <= TYPE_from_interrupt;
-	
 	IFG_write <= IFG_ena and MemWrite;
 	
 	rst <= not rst_in;
+	
+	clr_BT <= INTRx = '0' and INTA = '0' and TYPE_reg = X"10";
+	
+	process
+	begin
+		WAIT UNTIL ( clk'EVENT ) AND ( clk = '1' );
+		INTRx <= INTR;
+	end process;
 	
 	process (clk_24MHz)
 	begin

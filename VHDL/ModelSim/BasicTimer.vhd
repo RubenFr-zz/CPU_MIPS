@@ -42,7 +42,7 @@ begin
 		counter(15) when BTIP = "100" else
 		counter(19) when BTIP = "101" else
 		counter(23) when BTIP = "110" else
-		counter(25) when BTIP = "111" else 'Z';
+		counter(25) when BTIP = "111" else '0';
 
 	MCLK2 <= divider(0);
 	MCLK4 <= divider(1);
@@ -52,7 +52,7 @@ begin
 		MCLK  when BTSSEL = "00" else
 		MCLK2 when BTSSEL = "01" else
 		MCLK4 when BTSSEL = "10" else
-		MCLK8 when BTSSEL = "11" else 'Z';
+		MCLK8 when BTSSEL = "11" else '0';
 
 	next_counter <=
 		BTCNT   when FLAG = '1' else

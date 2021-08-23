@@ -18,7 +18,7 @@ use IEEE.MATH_REAL.ALL;
 
 entity UART is
     Generic (
-        CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
+        CLK_FREQ      : integer := 12e6;   -- system clock frequency in Hz
         BAUD_RATE     : integer := 115200; -- baud rate value
         PARITY_BIT    : string  := "none"; -- type of parity: "none", "even", "odd", "mark", "space"
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
