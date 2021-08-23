@@ -29,7 +29,6 @@ ARCHITECTURE behavior OF Ifetch IS
 	SIGNAL PC, PC_plus_4, Mem_Addr      	: STD_LOGIC_VECTOR( 10 DOWNTO 0 );
 	SIGNAL next_PC	: STD_LOGIC_VECTOR( 8 DOWNTO 0 );
 	SIGNAL Instruct   			: STD_LOGIC_VECTOR( 31 DOWNTO 0 );
-	SIGNAL INTR_OLD		: STD_LOGIC;
 BEGIN
 
 	--------------------------------------------------------------------------------
@@ -74,14 +73,12 @@ BEGIN
 	-- Mux to select Branch Address or PC + 4        
 	Next_PC <=
 		'0' & X"00"                     WHEN Reset = '1' ELSE
-		-- ISR_address				  WHEN (INTR = '1'  and INTA = '0') or (INTR_OLD = '1')	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
-		ISR_address				  WHEN INTR_OLD = '1'	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
+		ISR_address				  WHEN INTR = '1'  and INTA = '0'	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
 		Add_result                WHEN ((Branch = '1') AND (Zero = '1') AND (Instruct(31 DOWNTO 26) = "000100")) ELSE	--beq
 		Add_result                WHEN ((Branch = '1') AND (Zero = '0') AND (Instruct(31 DOWNTO 26) = "000101")) ELSE	--bne
 		Add_result                WHEN ((Jump = '1') AND (Instruct(31 DOWNTO 26) = "000010")) ELSE						--j
 		Add_result                WHEN ((Jump = '1') AND (Instruct(31 DOWNTO 26) = "000011")) ELSE						--jal
 		read_data_1( 10 DOWNTO 2 ) WHEN ((JumpReg = '1') AND (Instruct(5 DOWNTO 0) = "001000") AND (Instruct(31 DOWNTO 26) = "000000" )) ELSE	--jr
-		PC(10 DOWNTO 2)						WHEN (INTR = '1') ELSE						--KEEP PC WHEN FIRST ENCOUNTERING INTERRUPT
 		PC_plus_4( 10 DOWNTO 2 );
 
 	
@@ -99,23 +96,15 @@ BEGIN
 			end if;
 	end process;
 	
-	PROCESS ( clock, reset )
+	PROCESS
 	BEGIN
+		WAIT UNTIL ( clock'EVENT ) AND ( clock = '1' );
 		IF reset = '1' THEN
-			PC( 10 DOWNTO 2) <= "000000000" ;
-		elsif rising_edge(clock) then
+			PC( 10 DOWNTO 2) <= "00000000" ;
+		ELSE
 			PC( 10 DOWNTO 2 ) <= Next_PC;
 		END IF;
 	END PROCESS;
-	
-	PROCESS (clock, reset)
-	begin
-		IF reset = '1' THEN
-			INTR_OLD <= '0';
-		elsif falling_edge(clock) then
-			INTR_OLD <= INTR;
-		END IF;
-	end process;
 	
 	
 END behavior;

@@ -10,7 +10,7 @@ USE altera_mf.altera_mf_components.all;
 
 ENTITY dmemory IS
 	PORT(	read_data 			: OUT 	STD_LOGIC_VECTOR( 31 DOWNTO 0 );
-        	address 			: IN 	STD_LOGIC_VECTOR( 9 DOWNTO 0 );			--changed to 10 bits
+        	address 			: IN 	STD_LOGIC_VECTOR( 10 DOWNTO 0 );
         	write_data 			: IN 	STD_LOGIC_VECTOR( 31 DOWNTO 0 );
 	   		MemRead, Memwrite 	: IN 	STD_LOGIC;
             clock,reset			: IN 	STD_LOGIC );
@@ -23,14 +23,14 @@ BEGIN
 	GENERIC MAP  (
 		operation_mode => "SINGLE_PORT",
 		width_a => 32,
-		widthad_a => 10,
+		widthad_a => 11,
 		lpm_type => "altsyncram",
 		outdata_reg_a => "UNREGISTERED",
-		init_file => "dmemory.hex",
+		init_file => "C:\final_lab_cpu\developement\stuff from moodle\test3\dmemory.hex",
 		intended_device_family => "Cyclone"
 	)
 	PORT MAP (
-		wren_a => Memwrite,
+		wren_a => memwrite,
 		clock0 => write_clock,
 		address_a => address,
 		data_a => write_data,

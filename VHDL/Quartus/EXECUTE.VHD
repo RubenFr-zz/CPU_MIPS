@@ -15,8 +15,8 @@ ENTITY Execute IS
 		ALUSrc          : IN  STD_LOGIC;
 		Zero            : OUT STD_LOGIC;
 		ALU_Result      : OUT STD_LOGIC_VECTOR( 31 DOWNTO 0 );
-		Add_Result      : OUT STD_LOGIC_VECTOR( 7 DOWNTO 0 );
-		PC_plus_4       : IN  STD_LOGIC_VECTOR( 9 DOWNTO 0 );
+		Add_Result      : OUT STD_LOGIC_VECTOR( 8 DOWNTO 0 );
+		PC_plus_4       : IN  STD_LOGIC_VECTOR( 10 DOWNTO 0 );
 		clock, reset    : IN  STD_LOGIC
 	);
 END Execute;
@@ -24,7 +24,7 @@ END Execute;
 ARCHITECTURE behavior OF Execute IS
 	SIGNAL Ainput, Binput : STD_LOGIC_VECTOR( 31 DOWNTO 0 );
 	SIGNAL ALU_output_mux : STD_LOGIC_VECTOR( 31 DOWNTO 0 );
-	SIGNAL Branch_Add     : STD_LOGIC_VECTOR( 7 DOWNTO 0 );
+	SIGNAL Branch_Add     : STD_LOGIC_VECTOR( 8 DOWNTO 0 );
 	SIGNAL ALU_ctl        : STD_LOGIC_VECTOR( 2 DOWNTO 0 );
 	SIGNAL ctl_R_format   : STD_LOGIC_VECTOR( 2 DOWNTO 0 );
 	SIGNAL ctl_I_format   : STD_LOGIC_VECTOR( 2 DOWNTO 0 );
@@ -88,10 +88,10 @@ BEGIN
 		Zero <= '1' WHEN ALU_output_mux( 31 DOWNTO 0 ) = X"00000000" ELSE '0';
 
 		-- Adder to compute Branch Address
-		Branch_Add <= PC_plus_4( 9 DOWNTO 2 ) + sign_extend( 7 DOWNTO 0 ) ;
+		Branch_Add <= PC_plus_4( 10 DOWNTO 2 ) + sign_extend( 8 DOWNTO 0 ) ;
 		Add_result <= 
-			Branch_Add( 7 DOWNTO 0 ) WHEN ALUOp = "01" ELSE -- br
-			sign_extend( 7 DOWNTO 0 ); -- jump
+			Branch_Add( 8 DOWNTO 0 ) WHEN ALUOp = "01" ELSE -- br
+			sign_extend( 8 DOWNTO 0 ); -- jump
 
 		-- Shamt for sll and srl
 		shamt <= sign_extend( 10 DOWNTO 6);
