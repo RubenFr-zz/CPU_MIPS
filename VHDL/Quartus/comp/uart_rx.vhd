@@ -12,8 +12,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity UART_RX is
     Generic (
-        CLK_DIV_VAL : integer := 16;
-        PARITY_BIT  : string  := "none" -- type of parity: "none", "even", "odd", "mark", "space"
+        CLK_DIV_VAL : integer := 16
     );
     Port (
         CLK          : in  std_logic; -- system clock
@@ -28,6 +27,7 @@ entity UART_RX is
         PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
 		
 		-- ADDED
+		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
 		RX_BUSY		 : out std_logic
     );
 end entity;
@@ -110,31 +110,53 @@ begin
     -- -------------------------------------------------------------------------
     -- UART RECEIVER PARITY GENERATOR AND CHECK
     -- -------------------------------------------------------------------------
-
-    uart_rx_parity_g : if (PARITY_BIT /= "none") generate
-        uart_rx_parity_gen_i: entity work.UART_PARITY
+	uart_rx_parity_gen_i: entity work.UART_PARITY
         generic map (
-            DATA_WIDTH  => 8,
-            PARITY_TYPE => PARITY_BIT
+            DATA_WIDTH  => 8            
         )
         port map (
+			PARITY_TYPE => PARITY_BIT,
             DATA_IN     => rx_data,
             PARITY_OUT  => rx_parity_bit
         );
-
-        uart_rx_parity_check_reg_p : process (CLK)
+	
+	uart_rx_parity_check_reg_p : process (CLK)
         begin
             if (rising_edge(CLK)) then
                 if (rx_clk_en = '1') then
-                    rx_parity_error <= rx_parity_bit XOR UART_RXD;
+					if (PARITY_BIT(0) = '0') then 	-- PARITY_BIT = "none"
+						rx_parity_error <= '0';
+					else
+						rx_parity_error <= rx_parity_bit XOR UART_RXD;
+					end if;	
                 end if;
             end if;
         end process;
-    end generate;
+		
+    -- uart_rx_parity_g : if (PARITY_BIT /= "none") generate
+        -- uart_rx_parity_gen_i: entity work.UART_PARITY
+        -- generic map (
+            -- DATA_WIDTH  => 8            
+        -- )
+        -- port map (
+			-- PARITY_TYPE => PARITY_BIT,
+            -- DATA_IN     => rx_data,
+            -- PARITY_OUT  => rx_parity_bit
+        -- );
 
-    uart_rx_noparity_g : if (PARITY_BIT = "none") generate
-        rx_parity_error <= '0';
-    end generate;
+        -- uart_rx_parity_check_reg_p : process (CLK)
+        -- begin
+            -- if (rising_edge(CLK)) then
+                -- if (rx_clk_en = '1') then
+                    -- rx_parity_error <= rx_parity_bit XOR UART_RXD;
+                -- end if;
+            -- end if;
+        -- end process;
+    -- end generate;
+
+    -- uart_rx_noparity_g : if (PARITY_BIT = "none") generate
+        -- rx_parity_error <= '0';
+    -- end generate;
 
     -- -------------------------------------------------------------------------
     -- UART RECEIVER OUTPUT REGISTER
@@ -174,7 +196,7 @@ begin
     end process;
 
     -- NEXT STATE AND OUTPUTS LOGIC
-    process (fsm_pstate, UART_RXD, rx_clk_en, rx_bit_count)
+    process (fsm_pstate, UART_RXD, rx_clk_en, rx_bit_count, PARITY_BIT(0))
     begin
         case fsm_pstate is
 
@@ -215,7 +237,7 @@ begin
 				fsm_busy <= '0';
 
                 if ((rx_clk_en = '1') AND (rx_bit_count = "111")) then
-                    if (PARITY_BIT = "none") then
+                    if (PARITY_BIT(0) = '0') then	
                         fsm_nstate <= stopbit;
                     else
                         fsm_nstate <= paritybit;

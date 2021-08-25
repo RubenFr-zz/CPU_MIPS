@@ -12,8 +12,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity UART_TX is
     Generic (
-        CLK_DIV_VAL : integer := 16;
-        PARITY_BIT  : string  := "none" -- type of parity: "none", "even", "odd", "mark", "space"
+        CLK_DIV_VAL : integer := 16
     );
     Port (
         CLK         : in  std_logic; -- system clock
@@ -27,6 +26,7 @@ entity UART_TX is
         DIN_RDY     : out std_logic;  -- when DIN_RDY = 1, transmitter is ready and valid input data will be accepted for transmiting
 		
 		-- Added
+		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
 		DIN_FINISHED : out std_logic	-- When TX finishes sending DIN
     );
 end entity;
@@ -107,21 +107,31 @@ begin
     -- UART TRANSMITTER PARITY GENERATOR
     -- -------------------------------------------------------------------------
 
-    uart_tx_parity_g : if (PARITY_BIT /= "none") generate
-        uart_tx_parity_gen_i: entity work.UART_PARITY
+    uart_tx_parity_gen_i: entity work.UART_PARITY
         generic map (
-            DATA_WIDTH  => 8,
-            PARITY_TYPE => PARITY_BIT
+            DATA_WIDTH  => 8
         )
         port map (
+			PARITY_TYPE => PARITY_BIT,
             DATA_IN     => tx_data,
             PARITY_OUT  => tx_parity_bit
         );
-    end generate;
 
-    uart_tx_noparity_g : if (PARITY_BIT = "none") generate
-        tx_parity_bit <= '0';
-    end generate;
+    -- uart_tx_parity_g : if (PARITY_BIT /= "none") generate
+        -- uart_tx_parity_gen_i: entity work.UART_PARITY
+        -- generic map (
+            -- DATA_WIDTH  => 8,
+            -- PARITY_TYPE => PARITY_BIT
+        -- )
+        -- port map (
+            -- DATA_IN     => tx_data,
+            -- PARITY_OUT  => tx_parity_bit
+        -- );
+    -- end generate;
+
+    -- uart_tx_noparity_g : if (PARITY_BIT = "none") generate
+        -- tx_parity_bit <= '0';
+    -- end generate;
 
     -- -------------------------------------------------------------------------
     -- UART TRANSMITTER OUTPUT DATA REGISTER
@@ -164,7 +174,7 @@ begin
     end process;
 
     -- NEXT STATE AND OUTPUTS LOGIC
-    process (tx_pstate, DIN_VLD, tx_clk_en, tx_bit_count)
+    process (tx_pstate, DIN_VLD, tx_clk_en, tx_bit_count, PARITY_BIT(0))
     begin
 
         case tx_pstate is
@@ -224,7 +234,7 @@ begin
 				tx_finished <= '0';
 
                 if ((tx_clk_en = '1') AND (tx_bit_count = "111")) then
-                    if (PARITY_BIT = "none") then
+                    if (PARITY_BIT(0) = '0') then	-- PARITY_BIT = "none"
                         tx_nstate <= stopbit;
                     else
                         tx_nstate <= paritybit;
