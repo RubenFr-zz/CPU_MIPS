@@ -25,7 +25,10 @@ entity UART_RX is
         DOUT         : out std_logic_vector(7 downto 0); -- output data received via UART
         DOUT_VLD     : out std_logic; -- when DOUT_VLD = 1, output data (DOUT) are valid without errors (is assert only for one clock cycle)
         FRAME_ERROR  : out std_logic; -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
-        PARITY_ERROR : out std_logic  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+        PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+		
+		-- ADDED
+		RX_BUSY		 : out std_logic
     );
 end entity;
 
@@ -41,6 +44,8 @@ architecture RTL of UART_RX is
     signal fsm_idle           : std_logic;
     signal fsm_databits       : std_logic;
     signal fsm_stopbit        : std_logic;
+	
+	signal fsm_busy			  : std_logic;
 
     type state is (idle, startbit, databits, paritybit, stopbit);
     signal fsm_pstate : state;
@@ -48,6 +53,9 @@ architecture RTL of UART_RX is
 
 begin
 
+	-- ADDED
+	RX_BUSY <= fsm_busy;
+	
     -- -------------------------------------------------------------------------
     -- UART RECEIVER CLOCK DIVIDER AND CLOCK ENABLE FLAG
     -- -------------------------------------------------------------------------
@@ -174,6 +182,9 @@ begin
                 fsm_stopbit  <= '0';
                 fsm_databits <= '0';
                 fsm_idle     <= '1';
+				
+				-- ADDED
+				fsm_busy <= '1';
 
                 if (UART_RXD = '0') then
                     fsm_nstate <= startbit;
@@ -186,6 +197,9 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
 
+				-- ADDED
+				fsm_busy <= '0';
+
                 if (rx_clk_en = '1') then
                     fsm_nstate <= databits;
                 else
@@ -196,6 +210,9 @@ begin
                 fsm_stopbit  <= '0';
                 fsm_databits <= '1';
                 fsm_idle     <= '0';
+
+				-- ADDED
+				fsm_busy <= '0';
 
                 if ((rx_clk_en = '1') AND (rx_bit_count = "111")) then
                     if (PARITY_BIT = "none") then
@@ -212,6 +229,9 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
 
+				-- ADDED
+				fsm_busy <= '0';
+
                 if (rx_clk_en = '1') then
                     fsm_nstate <= stopbit;
                 else
@@ -222,6 +242,9 @@ begin
                 fsm_stopbit  <= '1';
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
+
+				-- ADDED
+				fsm_busy <= '0';
 
                 if (rx_clk_en = '1') then
                     fsm_nstate <= idle;
@@ -234,6 +257,10 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
                 fsm_nstate   <= idle;
+				
+				-- ADDED
+				fsm_busy <= '0';
+
 
         end case;
     end process;

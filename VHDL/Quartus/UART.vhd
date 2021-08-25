@@ -38,7 +38,11 @@ entity UART is
         DOUT         : out std_logic_vector(7 downto 0); -- output data received via UART
         DOUT_VLD     : out std_logic; -- when DOUT_VLD = 1, output data (DOUT) are valid (is assert only for one clock cycle)
         FRAME_ERROR  : out std_logic; -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
-        PARITY_ERROR : out std_logic  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+        PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+		
+		-- Added
+		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
+		RX_BUSY		 : out std_logic
     );
 end entity;
 
@@ -125,7 +129,10 @@ begin
         DOUT         => DOUT,
         DOUT_VLD     => DOUT_VLD,
         FRAME_ERROR  => FRAME_ERROR,
-        PARITY_ERROR => PARITY_ERROR
+        PARITY_ERROR => PARITY_ERROR,
+		
+		-- ADDED
+		RX_BUSY		 => RX_BUSY
     );
 
     -- -------------------------------------------------------------------------
@@ -146,7 +153,10 @@ begin
         -- USER DATA INPUT INTERFACE
         DIN         => DIN,
         DIN_VLD     => DIN_VLD,
-        DIN_RDY     => DIN_RDY
+        DIN_RDY     => DIN_RDY,
+		
+		-- Added 
+		DIN_FINISHED => DIN_FINISHED
     );
 
 end architecture;

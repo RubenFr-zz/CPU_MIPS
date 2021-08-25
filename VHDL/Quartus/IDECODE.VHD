@@ -89,21 +89,21 @@ BEGIN
 		END IF;
 	END PROCESS;
 	
-	-- calculate GIE from k0
-	PROCESS (clock, reset)
-		BEGIN
-			if reset = '1' then
-				GIE <= '0';
-			elsif rising_edge(clock) then
-				-- if we are writing to $k0
-				IF RegWrite = '1' AND write_register_address="011010" THEN
-					-- take $k0[0] as GIE
-					GIE <= write_data(0);
-				END IF;
-			end if;
-	END PROCESS;
+	GIE <= register_array(26)(0);
 	
-	-- GIE_OUT <= GIE;		
+	-- -- calculate GIE from k0
+	-- PROCESS (clock, reset)
+		-- BEGIN
+			-- if reset = '1' then
+				-- GIE <= '0';
+			-- elsif rising_edge(clock) then
+				-- -- if we are writing to $k0
+				-- IF RegWrite = '1' AND write_register_address="011010" THEN
+					-- -- take $k0[0] as GIE
+					-- GIE <= write_data(0);
+				-- END IF;
+			-- end if;
+	-- END PROCESS;
 	
 END behavior;
 

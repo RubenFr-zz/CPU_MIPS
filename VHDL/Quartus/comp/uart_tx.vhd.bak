@@ -45,14 +45,13 @@ architecture RTL of UART_TX is
 	-- Added
 	signal tx_finished 	   : std_logic;
 
-    type state is (idle, txsync, startbit, databits, paritybit, stopbit, finished);
+    type state is (idle, txsync, startbit, databits, paritybit, stopbit);
     signal tx_pstate : state;
     signal tx_nstate : state;
 
 begin
 
     DIN_RDY <= tx_ready;
-	DIN_FINISHED <= tx_finished;
 
     -- -------------------------------------------------------------------------
     -- UART TRANSMITTER CLOCK DIVIDER AND CLOCK ENABLE FLAG
@@ -176,7 +175,7 @@ begin
                 tx_clk_div_clr <= '1';
 				
 				-- Added
-				tx_finished <= '0';
+				tx_finished <= '0'
 
                 if (DIN_VLD = '1') then
                     tx_nstate <= txsync;
@@ -191,7 +190,7 @@ begin
                 tx_clk_div_clr <= '0';
 	
 				-- Added
-				tx_finished <= '0';
+				tx_finished <= '0'
 
                 if (tx_clk_en = '1') then
                     tx_nstate <= startbit;
@@ -206,7 +205,7 @@ begin
                 tx_clk_div_clr <= '0';
 	
 				-- Added
-				tx_finished <= '0';
+				tx_finished <= '0'
 
                 if (tx_clk_en = '1') then
                     tx_nstate <= databits;
@@ -221,7 +220,7 @@ begin
                 tx_clk_div_clr <= '0';
 	
 				-- Added
-				tx_finished <= '0';
+				tx_finished <= '0'
 
                 if ((tx_clk_en = '1') AND (tx_bit_count = "111")) then
                     if (PARITY_BIT = "none") then
@@ -240,7 +239,7 @@ begin
                 tx_clk_div_clr <= '0';
 	
 				-- Added
-				tx_finished <= '0';
+				tx_finished <= '0'
 
                 if (tx_clk_en = '1') then
                     tx_nstate <= stopbit;
@@ -249,48 +248,28 @@ begin
                 end if;
 
             when stopbit =>
-                tx_ready <= '0';
+                tx_ready <= '1';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
                 tx_clk_div_clr <= '0';
 	
 				-- Added
-				tx_finished <= '0';
+				tx_finished <= '1'
 
                 if (DIN_VLD = '1') then
                     tx_nstate <= txsync;
                 elsif (tx_clk_en = '1') then
-                    tx_nstate <= finished;
+                    tx_nstate <= idle;
                 else
                     tx_nstate <= stopbit;
                 end if;
 
-			when finished =>
-				tx_ready <= '1';
-                tx_data_out_sel <= "00";
-                tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '1';
-				
-				if (DIN_VLD = '1') then
-                    tx_nstate <= txsync;
-				elsif (tx_clk_en = '1') then
-                    tx_nstate <= idle;
-                else
-                    tx_nstate <= finished;
-                end if;
-			
             when others =>
                 tx_ready <= '0';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
                 tx_clk_div_clr <= '0';
                 tx_nstate <= idle;
-					 
-				-- Added
-				tx_finished <= '0';
 
         end case;
     end process;

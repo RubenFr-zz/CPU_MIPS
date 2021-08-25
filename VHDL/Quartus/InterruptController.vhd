@@ -25,8 +25,9 @@ entity InterruptController is
 		INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
 		INTR : out std_logic;  -- Interrupt request
 		
-		-- test
-		clr_BT : in boolean
+		-- Clear Flag 
+		clr_BT, clr_RX, clr_TX : in boolean
+		-- clr_KEY1, clr_KEY2, clr_KEY3 : in boolean
 	);
 end entity InterruptController;
 
@@ -91,19 +92,19 @@ begin
 	----------------------------------------------------------------------------
 	-- Interrupt Flag (Request)
 	----------------------------------------------------------------------------
-	process (RX_irq, IFG_write, IFG_in(0))
+	process (RX_irq, clr_RX)
 	begin
-		if IFG_write = '1' then
-			RXIFG <= IFG_in(0);
+		if clr_RX then
+			RXIFG <= '0';
 		elsif rising_edge(RX_irq) then
 			RXIFG <= RXIE;
 		end if;
 	end process;
-
-	process (TX_irq, IFG_write, IFG_in(1))
+	
+	process (TX_irq, clr_TX)
 	begin
-		if IFG_write = '1' then
-			TXIFG <= IFG_in(1);
+		if clr_TX then
+			TXIFG <= '0';
 		elsif rising_edge(TX_irq) then
 			TXIFG <= TXIE;
 		end if;
@@ -118,6 +119,33 @@ begin
 		end if;
 	end process;
 
+	-- process (KEY1_irq, clr_KEY1)
+	-- begin
+		-- if clr_KEY1 then
+			-- KEY1IFG <= '0';
+		-- elsif rising_edge(KEY1_irq) then
+			-- KEY1IFG <= KEY1IE;
+		-- end if;
+	-- end process;
+
+	-- process (KEY2_irq, clr_KEY2)
+	-- begin
+		-- if clr_KEY2 then
+			-- KEY2IFG <= '0';
+		-- elsif rising_edge(KEY2_irq) then
+			-- KEY2IFG <= KEY2IE;
+		-- end if;
+	-- end process;
+
+	-- process (KEY3_irq, clr_KEY3)
+	-- begin
+		-- if clr_KEY3 then
+			-- KEY3IFG <= '0';
+		-- elsif rising_edge(KEY3_irq) then
+			-- KEY3IFG <= KEY3IE;
+		-- end if;
+	-- end process;
+	
 	process (KEY1_irq, IFG_write, IFG_in(3))
 	begin
 		if IFG_write = '1' then

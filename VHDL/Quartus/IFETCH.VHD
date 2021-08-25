@@ -42,7 +42,7 @@ BEGIN
 			widthad_a              => 11,
 			lpm_type               => "altsyncram",
 			outdata_reg_a          => "UNREGISTERED",
-			init_file              => "C:\final_lab_cpu\developement\stuff from moodle\test3\program.hex",
+			init_file              => "C:\final_lab_cpu\developement\stuff from moodle\app_test\program.hex",
 			intended_device_family => "Cyclone"
 		)
 		PORT MAP (
@@ -76,12 +76,12 @@ BEGIN
 		'0' & X"00"                     WHEN Reset = '1' ELSE
 		-- ISR_address				  WHEN (INTR = '1'  and INTA = '0') or (INTR_OLD = '1')	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
 		ISR_address				  WHEN INTR_OLD = '1'	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
+		PC(10 DOWNTO 2)			  WHEN (INTR = '1') ELSE						--KEEP PC WHEN FIRST ENCOUNTERING INTERRUPT
 		Add_result                WHEN ((Branch = '1') AND (Zero = '1') AND (Instruct(31 DOWNTO 26) = "000100")) ELSE	--beq
 		Add_result                WHEN ((Branch = '1') AND (Zero = '0') AND (Instruct(31 DOWNTO 26) = "000101")) ELSE	--bne
 		Add_result                WHEN ((Jump = '1') AND (Instruct(31 DOWNTO 26) = "000010")) ELSE						--j
 		Add_result                WHEN ((Jump = '1') AND (Instruct(31 DOWNTO 26) = "000011")) ELSE						--jal
 		read_data_1( 10 DOWNTO 2 ) WHEN ((JumpReg = '1') AND (Instruct(5 DOWNTO 0) = "001000") AND (Instruct(31 DOWNTO 26) = "000000" )) ELSE	--jr
-		PC(10 DOWNTO 2)						WHEN (INTR = '1') ELSE						--KEEP PC WHEN FIRST ENCOUNTERING INTERRUPT
 		PC_plus_4( 10 DOWNTO 2 );
 
 	
