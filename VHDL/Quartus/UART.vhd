@@ -20,7 +20,6 @@ entity UART is
     Generic (
         CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
         BAUD_RATE     : integer := 115200; -- baud rate value
-        PARITY_BIT    : string  := "none"; -- type of parity: "none", "even", "odd", "mark", "space"
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
     );
     Port (
@@ -41,6 +40,7 @@ entity UART is
         PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
 		
 		-- Added
+		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
 		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
 		RX_BUSY		 : out std_logic
     );
@@ -116,8 +116,7 @@ begin
 
     uart_rx_i: entity work.UART_RX
     generic map (
-        CLK_DIV_VAL => UART_CLK_DIV_VAL,
-        PARITY_BIT  => PARITY_BIT
+        CLK_DIV_VAL => UART_CLK_DIV_VAL
     )
     port map (
         CLK          => CLK,
@@ -132,6 +131,7 @@ begin
         PARITY_ERROR => PARITY_ERROR,
 		
 		-- ADDED
+		PARITY_BIT   => PARITY_BIT,
 		RX_BUSY		 => RX_BUSY
     );
 
@@ -141,8 +141,7 @@ begin
 
     uart_tx_i: entity work.UART_TX
     generic map (
-        CLK_DIV_VAL => UART_CLK_DIV_VAL,
-        PARITY_BIT  => PARITY_BIT
+        CLK_DIV_VAL => UART_CLK_DIV_VAL
     )
     port map (
         CLK         => CLK,
@@ -156,6 +155,7 @@ begin
         DIN_RDY     => DIN_RDY,
 		
 		-- Added 
+		PARITY_BIT   => PARITY_BIT,
 		DIN_FINISHED => DIN_FINISHED
     );
 

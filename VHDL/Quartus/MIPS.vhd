@@ -179,7 +179,6 @@ ARCHITECTURE structure OF MIPS IS
     Generic (
         CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
         BAUD_RATE     : integer := 115200; -- baud rate value
-        PARITY_BIT    : string  := "none"; -- type of parity: "none", "even", "odd", "mark", "space"
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
     );
     Port (
@@ -200,6 +199,7 @@ ARCHITECTURE structure OF MIPS IS
         PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
 		
 		-- Added
+		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
 		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
 		RX_BUSY		 : out std_logic
     );
@@ -287,7 +287,7 @@ ARCHITECTURE structure OF MIPS IS
 	SIGNAL TX_VLD,TX_RDY 	: STD_LOGIC;
 	SIGNAL RX_irq, TX_irq	: STD_LOGIC := '0';
 	-- SIGNAL BAUD_RATE     : integer;
-	-- SIGNAL PARITY_BIT    : string; 
+	-- SIGNAL PARITY_BIT    : std_logic_vector ( 1 downto 0 ); 
 	-- SIGNAL rst_UART		: std_LOGIC;
 	SIGNAL BUSY_UCTL, OE_UCTL: STD_LOGIC := '0';
 	SIGNAL RX_BUSY : STD_LOGIC;
@@ -498,6 +498,7 @@ BEGIN
         PARITY_ERROR  => UCTL_reg(5),
 		
 		-- ADDED
+		PARITY_BIT	=> UCTL_reg(2 downto 1),
 		DIN_FINISHED => TX_irq,
 		RX_BUSY => RX_BUSY
     );
@@ -598,6 +599,11 @@ BEGIN
 	UCTL_reg(7) <= BUSY_UCTL;
 	
 	BUSY_UCTL <= TX_RDY or RX_BUSY;
+	
+	-- PARITY_BIT <=
+		-- "none" when UCTL_reg(1) = '0' else
+		-- "odd" when UCTL_reg(2) = '0' else
+		-- "even";
 	
 	-- If we are handling a rx interrupt and also a new rx interrupt was received, set uart overrun flag
 	process(RX_irq,rst)
