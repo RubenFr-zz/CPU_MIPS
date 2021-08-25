@@ -26,7 +26,7 @@ BEGIN
 		widthad_a => 11,
 		lpm_type => "altsyncram",
 		outdata_reg_a => "UNREGISTERED",
-		init_file => "C:\final_lab_cpu\developement\stuff from moodle\test3\dmemory.hex",
+		init_file => "C:\final_lab_cpu\developement\stuff from moodle\app_test\dmemory.hex",
 		intended_device_family => "Cyclone"
 	)
 	PORT MAP (

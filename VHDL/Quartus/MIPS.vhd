@@ -18,7 +18,10 @@ ENTITY MIPS IS
 		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0); -- converted to 7-seg	
 		-- UART INTERFACE
         UART_TXD     : out std_logic; -- serial transmit data
-        UART_RXD     : in  std_logic -- serial receive data
+        UART_RXD     : in  std_logic; -- serial receive data
+		
+		-- Debug
+		LEDR8, LEDR9			: OUT STD_LOGIC
 	);
 END MIPS;
 
@@ -156,8 +159,9 @@ ARCHITECTURE structure OF MIPS IS
 		INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
 		INTR : out std_logic;  -- Interrupt request
 		
-		--test
-		clr_BT : in boolean
+		-- Clear Flag 
+		clr_BT, clr_RX, clr_TX : in boolean
+		-- clr_KEY1, clr_KEY2, clr_KEY3 : in boolean
 	);
 	end COMPONENT InterruptController;
 	
@@ -193,7 +197,11 @@ ARCHITECTURE structure OF MIPS IS
         DOUT         : out std_logic_vector(7 downto 0); -- output data received via UART
         DOUT_VLD     : out std_logic; -- when DOUT_VLD = 1, output data (DOUT) are valid (is assert only for one clock cycle)
         FRAME_ERROR  : out std_logic; -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
-        PARITY_ERROR : out std_logic  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+        PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+		
+		-- Added
+		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
+		RX_BUSY		 : out std_logic
     );
 	end COMPONENT UART;
 
@@ -276,10 +284,19 @@ ARCHITECTURE structure OF MIPS IS
 	
 	-- Added signals for UART support
 	
-	SIGNAL TX_VLD,TX_RDY,RX_irq			: STD_LOGIC;
+	SIGNAL TX_VLD,TX_RDY 	: STD_LOGIC;
+	SIGNAL RX_irq, TX_irq	: STD_LOGIC := '0';
+	-- SIGNAL BAUD_RATE     : integer;
+	-- SIGNAL PARITY_BIT    : string; 
+	-- SIGNAL rst_UART		: std_LOGIC;
+	SIGNAL BUSY_UCTL, OE_UCTL: STD_LOGIC := '0';
+	SIGNAL RX_BUSY : STD_LOGIC;
 	
 	-- Added to clear BTIFG 
 	signal clr_BT : boolean := false;
+	signal clr_RX : boolean := false;
+	signal clr_TX : boolean := false;
+	-- signal clr_KEY1, clr_KEY2, clr_KEY3 : boolean := false;
 	
 
 BEGIN	
@@ -426,8 +443,8 @@ BEGIN
 		
 	IntrptControl : InterruptController
 		PORT MAP (
-			RX_irq   		=>	RX_irq,		--TODO: PUT UART INTERRUPTS
-		    TX_irq          =>	'0',
+			RX_irq   		=>	RX_irq,		-- When RX_irq is set, that means the Receiver buffer is full
+		    TX_irq          =>	TX_irq,		-- When TX_RDY is set, that means the transmitter finished sending
 		    BT_irq          =>	TimerFlag,
 		    KEY1_irq        =>	not KEY(0),
 		    KEY2_irq        =>  not KEY(1),
@@ -441,24 +458,28 @@ BEGIN
 		    INTA 	        =>	INTA,
 		    INTR 	        =>	INTR,
 		
-			clr_BT			=> clr_BT
+			clr_BT			=> clr_BT,
+			clr_RX			=> clr_RX,
+			clr_TX			=> clr_TX
+			-- clr_KEY1		=> clr_KEY1,
+			-- clr_KEY2		=> clr_KEY2,
+			-- clr_KEY3		=> clr_KEY3
+			
 		);
 
 	Timer : BasicTimer
 	PORT MAP (
 		MCLK 	=>	clk,
 		reset   =>	rst,
-		BTCTL   =>  BTCTL_reg,		   -- Basic Timer Control Register
-		BTCNT   =>  BTCNT_reg,   -- Basic Timer Counter (init)
-		BTIFG   =>  TimerFlag   -- Basic Timer Flag
+		BTCTL   =>  BTCTL_reg,		-- Basic Timer Control Register
+		BTCNT   =>  BTCNT_reg,   	-- Basic Timer Counter (init)
+		BTIFG   =>  TimerFlag   	-- Basic Timer Flag
 	);
 	
 	UART_inst : UART
-	--GENERIC MAP(
-        --CLK_FREQ      => 12e6,   -- system clock frequency in Hz
-        --BAUD_RATE     => 9600, -- baud rate value
-        --PARITY_BIT    => "even" -- type of parity: "none", "even", "odd", "mark", "space"
-   -- )
+	GENERIC MAP(
+        CLK_FREQ      => 12e6   -- system clock frequency in Hz
+	)
 	PORT MAP(
         -- CLOCK AND RESET
         CLK      => clk,    
@@ -474,7 +495,11 @@ BEGIN
         DOUT        => RXBF_reg, 
         DOUT_VLD     => RX_irq,
         FRAME_ERROR  => UCTL_reg(4),
-        PARITY_ERROR  => UCTL_reg(5)
+        PARITY_ERROR  => UCTL_reg(5),
+		
+		-- ADDED
+		DIN_FINISHED => TX_irq,
+		RX_BUSY => RX_BUSY
     );
 	----------------------------------------------------------------------------
 	--READ FROM I/O REGISTERS
@@ -517,6 +542,7 @@ BEGIN
 			BTCTL_reg <= (5 => '1', OTHERS => '0');		-- Hold
 			IFG_in <= (others => '0');
 		ELSIF falling_edge(clk) THEN
+			IFG_write <= '0';
 			IF MemWrite = '1' THEN
 				IF LEDG_ena = '1' THEN
 					LEDG_reg <= read_data_2(7 DOWNTO 0);
@@ -542,38 +568,67 @@ BEGIN
 					IE_reg <= read_data_2(7 DOWNTO 0);
 				ELSIF IFG_ena = '1' THEN
 					IFG_in <= read_data_2(7 DOWNTO 0);
+					IFG_write <= '1';
 				END IF;
 			END IF;
 		END IF;
 	END PROCESS;
 	
-	PROCESS (TXBF_ena, TX_RDY)
-		BEGIN
-		if TXBF_ena = '1' then
-			TX_VLD <= '1';
-		elsif falling_edge(TX_RDY) then
+	process (clk, rst)
+	begin
+		if rst = '1' then
 			TX_VLD <= '0';
+		elsif falling_edge(CLK) then	
+			if TXBF_ena = '1' and MemWrite = '1' then
+				TX_VLD <= '1';
+			elsif TX_RDY = '0' then
+				TX_VLD <= '0';
+			end if;
 		end if;
-	end PROCESS;
-
-	MEM_IO     <= ALU_Result(12); -- Read from 0: Memory, 1: IO
+	end process;
+	
+	MEM_IO     <= ALU_Result(11); -- Read from 0: Memory, 1: IO (ALU_Result doesn't start with 8)
 	write_to_memory_ena <= MemWrite AND (NOT MEM_IO) AND rst_in;
 
 	LEDG <= LEDG_reg;
 	LEDR <= LEDR_reg;
 	
-	IFG_write <= IFG_ena and MemWrite;
+
+	UCTL_reg(6) <= OE_UCTL;
+	UCTL_reg(7) <= BUSY_UCTL;
+	
+	BUSY_UCTL <= TX_RDY or RX_BUSY;
+	
+	-- If we are handling a rx interrupt and also a new rx interrupt was received, set uart overrun flag
+	process(RX_irq,rst)
+	begin
+		if rst = '1' then
+			OE_UCTL <= '0';
+		elsif rising_edge(RX_irq) then
+			OE_UCTL <= IFG_out(0);
+		end if;
+	end process;
+	
+	
 	
 	rst <= not rst_in;
 
+	clr_RX <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000001000") or rst = '1';
+	clr_TX <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000001100") or rst = '1';
 	clr_BT <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000010000") or rst = '1';
+	-- clr_KEY1 <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000010100") or rst = '1';
+	-- clr_KEY2 <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000011000") or rst = '1';
+	-- clr_KEY3 <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000011100") or rst = '1';
+	
+	LEDR8 <= TX_RDY;
+	LEDR9 <= GIE;
 	
 	process(clk,rst)
 	begin
 		if rst = '1' then
 			INTRx <= '0';
-		elsif rising_edge(CLK) then	--WAIT UNTIL ( clk'EVENT ) AND ( clk = '1' );
-		INTRx <= INTR;
+		elsif rising_edge(CLK) then
+			INTRx <= INTR;
 		end if;
 	end process;
 	
