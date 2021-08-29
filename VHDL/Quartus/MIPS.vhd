@@ -178,7 +178,7 @@ ARCHITECTURE structure OF MIPS IS
 	COMPONENT UART is
     Generic (
         CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
-        BAUD_RATE     : integer := 115200; -- baud rate value
+        -- BAUD_RATE     : integer := 115200; -- baud rate value
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
     );
     Port (
@@ -200,10 +200,37 @@ ARCHITECTURE structure OF MIPS IS
 		
 		-- Added
 		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
+		BAUD_RATE     : in std_logic; -- baud rate value: 0 : 9600, 1: 115200
 		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
 		RX_BUSY		 : out std_logic
     );
 	end COMPONENT UART;
+	
+	-- COMPONENT UART is
+    -- Generic (
+        -- CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
+        -- BAUD_RATE     : integer := 115200; -- baud rate value
+        -- PARITY_BIT    : string  := "none"; -- type of parity: "none", "even", "odd", "mark", "space"
+        -- USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
+    -- );
+    -- Port (
+        -- -- CLOCK AND RESET
+        -- CLK          : in  std_logic; -- system clock
+        -- RST          : in  std_logic; -- high active synchronous reset
+        -- -- UART INTERFACE
+        -- UART_TXD     : out std_logic; -- serial transmit data
+        -- UART_RXD     : in  std_logic; -- serial receive data
+        -- -- USER DATA INPUT INTERFACE
+        -- DIN          : in  std_logic_vector(7 downto 0); -- input data to be transmitted over UART
+        -- DIN_VLD      : in  std_logic; -- when DIN_VLD = 1, input data (DIN) are valid
+        -- DIN_RDY      : out std_logic; -- when DIN_RDY = 1, transmitter is ready and valid input data will be accepted for transmiting
+        -- -- USER DATA OUTPUT INTERFACE
+        -- DOUT         : out std_logic_vector(7 downto 0); -- output data received via UART
+        -- DOUT_VLD     : out std_logic; -- when DOUT_VLD = 1, output data (DOUT) are valid (is assert only for one clock cycle)
+        -- FRAME_ERROR  : out std_logic; -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
+        -- PARITY_ERROR : out std_logic  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+    -- );
+-- end COMPONENT;
 
 	----------------------------------------------------------------------------
 	-- SIGNAL ADDED
@@ -499,9 +526,40 @@ BEGIN
 		
 		-- ADDED
 		PARITY_BIT	=> UCTL_reg(2 downto 1),
+		BAUD_RATE => UCTL_reg(3),
 		DIN_FINISHED => TX_irq,
 		RX_BUSY => RX_BUSY
     );
+	
+	-- UART_inst : UART
+	-- GENERIC MAP(
+        -- CLK_FREQ      => 12e6,   -- system clock frequency in Hz
+        -- BAUD_RATE     => 9600,	  -- baud rate value
+        -- USE_DEBOUNCER => True    -- enable/disable debouncer
+	-- )
+	-- PORT MAP(
+        -- -- CLOCK AND RESET
+        -- CLK      => clk,    
+        -- RST      => rst,   
+        -- -- UART INTERFACE
+        -- UART_TXD     => UART_TXD,
+        -- UART_RXD     => UART_RXD,
+        -- -- USER DATA INPUT INTERFACE
+        -- DIN          => TXBF_reg,
+        -- DIN_VLD      => TX_VLD,  
+        -- DIN_RDY      => TX_RDY,
+        -- -- USER DATA OUTPUT INTERFACE
+        -- DOUT        => RXBF_reg, 
+        -- DOUT_VLD     => RX_irq,
+        -- FRAME_ERROR  => UCTL_reg(4),
+        -- PARITY_ERROR  => UCTL_reg(5)
+		
+		-- ADDED
+		-- PARITY_BIT	=> UCTL_reg(2 downto 1),
+		-- BAUD_RATE => UCTL_reg(3),
+		-- DIN_FINISHED => TX_irq,
+		-- RX_BUSY => RX_BUSY
+    -- );
 	----------------------------------------------------------------------------
 	--READ FROM I/O REGISTERS
 	----------------------------------------------------------------------------

@@ -11,9 +11,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity UART_TX is
-    Generic (
-        CLK_DIV_VAL : integer := 16
-    );
+    -- Generic (
+        -- CLK_DIV_VAL : integer := 16
+    -- );
     Port (
         CLK         : in  std_logic; -- system clock
         RST         : in  std_logic; -- high active synchronous reset
@@ -27,7 +27,8 @@ entity UART_TX is
 		
 		-- Added
 		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
-		DIN_FINISHED : out std_logic	-- When TX finishes sending DIN
+		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
+		BAUD_RATE     : in std_logic -- baud rate value: 0 : 9600, 1: 115200
     );
 end entity;
 
@@ -58,12 +59,15 @@ begin
     -- UART TRANSMITTER CLOCK DIVIDER AND CLOCK ENABLE FLAG
     -- -------------------------------------------------------------------------
 
-    tx_clk_divider_i : entity work.UART_CLK_DIV
-    generic map(
-        DIV_MAX_VAL  => CLK_DIV_VAL,
-        DIV_MARK_POS => 1
-    )
+    tx_clk_divider_i : entity work.UART_CLK_DIV_TX
+    -- generic map(
+        -- DIV_MAX_VAL  => CLK_DIV_VAL,
+        -- DIV_MARK_POS => 1
+    -- )
     port map (
+	
+		BAUD_RATE	=>			BAUD_RATE,
+	
         CLK      => CLK,
         RST      => RST,
         CLEAR    => tx_clk_div_clr,
@@ -267,9 +271,9 @@ begin
 				-- Added
 				tx_finished <= '0';
 
-                if (DIN_VLD = '1') then
-                    tx_nstate <= txsync;
-                elsif (tx_clk_en = '1') then
+                -- if (DIN_VLD = '1') then
+                    -- tx_nstate <= txsync;
+                if (tx_clk_en = '1') then
                     tx_nstate <= finished;
                 else
                     tx_nstate <= stopbit;

@@ -32,14 +32,19 @@ end entity;
 
 architecture RTL of UART_CLK_DIV_TX is
 
-	constant DIV_MAX_VAL_9600   : integer := 16;	--:= integer(real(12e6)/real(16*9600))
+	constant OS_CLK_DIV_VAL_9600   : integer := integer(real(12e6)/real(16*9600));	--:= integer(real(12e6)/real(16*9600))
+	constant OS_CLK_DIV_VAL_115200   : integer := integer(real(12e6)/real(16*115200)); --:= integer(real(12e6)/real(16*115200))
+	constant DIV_MAX_VAL_9600 : integer := integer(real(12e6)/real(OS_CLK_DIV_VAL_9600*9600)); --:= integer(real(12e6)/real(OS_CLK_DIV_VAL_9600*9600))
+	constant DIV_MAX_VAL_115200 : integer := integer(real(12e6)/real(OS_CLK_DIV_VAL_115200*115200)); --:= integer(real(12e6)/real(OS_CLK_DIV_VAL_115200*115200))
+
+	-- constant DIV_MAX_VAL_9600   : integer := 16;	--:= integer(real(12e6)/real(16*9600))
 	constant DIV_MARK_POS_9600   : integer := 1;
     constant CLK_DIV_WIDTH_9600  : integer := integer(ceil(log2(real(DIV_MAX_VAL_9600))));
 
     signal clk_div_cnt_9600      : unsigned(CLK_DIV_WIDTH_9600-1 downto 0);
     signal clk_div_cnt_mark_9600 : std_logic;
 	
-	constant DIV_MAX_VAL_115200   : integer := 17;	--:= integer(real(12e6)/real(16*9600))
+	-- constant DIV_MAX_VAL_115200   : integer := 17;	--:= integer(real(12e6)/real(16*9600))
 	constant DIV_MARK_POS_115200   : integer := 1;
     constant CLK_DIV_WIDTH_115200  : integer := integer(ceil(log2(real(DIV_MAX_VAL_115200))));
 

@@ -11,7 +11,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use IEEE.MATH_REAL.ALL;
 
-entity UART_CLK_DIV_TX is
+entity UART_CLK_DIV_RX is
     -- Generic (
         -- DIV_MAX_VAL  : integer := 16;
         -- DIV_MARK_POS : integer := 1
@@ -30,17 +30,22 @@ entity UART_CLK_DIV_TX is
     );
 end entity;
 
-architecture RTL of UART_CLK_DIV_TX is
+architecture RTL of UART_CLK_DIV_RX is
 
-	constant DIV_MAX_VAL_9600   : integer := 16;	--:= integer(real(12e6)/real(16*9600))
-	constant DIV_MARK_POS_9600   : integer := 1;
+	constant OS_CLK_DIV_VAL_9600   : integer := integer(real(12e6)/real(16*9600));	--:= integer(real(12e6)/real(16*9600))
+	constant OS_CLK_DIV_VAL_115200   : integer := integer(real(12e6)/real(16*115200)); --:= integer(real(12e6)/real(16*115200))
+	constant DIV_MAX_VAL_9600 : integer := integer(real(12e6)/real(OS_CLK_DIV_VAL_9600*9600)); --:= integer(real(12e6)/real(OS_CLK_DIV_VAL_9600*9600))
+	constant DIV_MAX_VAL_115200 : integer := integer(real(12e6)/real(OS_CLK_DIV_VAL_115200*115200)); --:= integer(real(12e6)/real(OS_CLK_DIV_VAL_115200*115200))
+
+	-- constant DIV_MAX_VAL_9600   : integer := 16;	--:= integer(real(12e6)/real(16*9600))
+	constant DIV_MARK_POS_9600   : integer := 3;
     constant CLK_DIV_WIDTH_9600  : integer := integer(ceil(log2(real(DIV_MAX_VAL_9600))));
 
     signal clk_div_cnt_9600      : unsigned(CLK_DIV_WIDTH_9600-1 downto 0);
     signal clk_div_cnt_mark_9600 : std_logic;
 	
-	constant DIV_MAX_VAL_115200   : integer := 17;	--:= integer(real(12e6)/real(16*9600))
-	constant DIV_MARK_POS_115200   : integer := 1;
+	-- constant DIV_MAX_VAL_115200   : integer := 17;	--:= integer(real(12e6)/real(16*9600))
+	constant DIV_MARK_POS_115200   : integer := 3;
     constant CLK_DIV_WIDTH_115200  : integer := integer(ceil(log2(real(DIV_MAX_VAL_115200))));
 
     signal clk_div_cnt_115200      : unsigned(CLK_DIV_WIDTH_115200-1 downto 0);
@@ -48,6 +53,8 @@ architecture RTL of UART_CLK_DIV_TX is
 	
 	signal DIV_MARK_9600 : std_logic;
 	signal DIV_MARK_115200 : std_logic;
+	
+
 	
 	--ADDED
 	--signal DIV_MARK_POS		: integer;
@@ -68,6 +75,8 @@ begin
             -- end if;
         -- end if;
     -- end process;
+	
+	
 	
 	clk_div_cnt_p_9600 : process (CLK)
     begin

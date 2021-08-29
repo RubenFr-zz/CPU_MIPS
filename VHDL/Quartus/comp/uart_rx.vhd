@@ -11,9 +11,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity UART_RX is
-    Generic (
-        CLK_DIV_VAL : integer := 16
-    );
+    -- Generic (
+        -- CLK_DIV_VAL : integer := 16
+    -- );
     Port (
         CLK          : in  std_logic; -- system clock
         RST          : in  std_logic; -- high active synchronous reset
@@ -28,7 +28,8 @@ entity UART_RX is
 		
 		-- ADDED
 		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
-		RX_BUSY		 : out std_logic
+		RX_BUSY		 : out std_logic;
+		BAUD_RATE     : in std_logic -- baud rate value: 0 : 9600, 1: 115200
     );
 end entity;
 
@@ -60,12 +61,15 @@ begin
     -- UART RECEIVER CLOCK DIVIDER AND CLOCK ENABLE FLAG
     -- -------------------------------------------------------------------------
 
-    rx_clk_divider_i : entity work.UART_CLK_DIV
-    generic map(
-        DIV_MAX_VAL  => CLK_DIV_VAL,
-        DIV_MARK_POS => 3
-    )
+    rx_clk_divider_i : entity work.UART_CLK_DIV_RX
+    -- generic map(
+        -- DIV_MAX_VAL  => CLK_DIV_VAL,
+        -- DIV_MARK_POS => 3
+    -- )
     port map (
+		
+		BAUD_RATE	=>			BAUD_RATE,
+	
         CLK      => CLK,
         RST      => RST,
         CLEAR    => fsm_idle,
