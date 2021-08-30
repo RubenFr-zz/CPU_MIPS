@@ -16,8 +16,8 @@ ENTITY Idecode IS
 		Sign_extend : OUT STD_LOGIC_VECTOR( 31 DOWNTO 0 );
 		clock,reset : IN  STD_LOGIC;
 		PC_plus_4   : IN  STD_LOGIC_VECTOR( 10 DOWNTO 0 );
-		PC   		: IN  STD_LOGIC_VECTOR( 10 DOWNTO 0 );
-		GIE		: OUT	STD_LOGIC);
+		PC          : IN  STD_LOGIC_VECTOR( 10 DOWNTO 0 );
+		GIE         : OUT STD_LOGIC);
 END Idecode;
 
 
@@ -51,14 +51,14 @@ BEGIN
 
 	-- Mux for Register Write Address
 	write_register_address <=
-		"11111"                  WHEN RegDst(1) = '1' ELSE	--jal
-		write_register_address_1 WHEN RegDst(0) = '1' ELSE	-- if RegDst(0) = '1' write to register rd, else write to rt
+		"11111"                  WHEN RegDst(1) = '1' ELSE --jal
+		write_register_address_1 WHEN RegDst(0) = '1' ELSE -- if RegDst(0) = '1' write to register rd, else write to rt
 		write_register_address_0;
 
 	-- Mux to bypass data memory for Rformat instructions
 	write_data <=
-		X"00000" & B"0" & PC_plus_4 WHEN MemtoReg(1) = '1' ELSE  -- jal
-		ALU_result( 31 DOWNTO 0 )    WHEN MemtoReg(0) = '0' ELSE
+		X"00000" & B"0" & PC_plus_4 WHEN MemtoReg(1) = '1' ELSE -- jal
+		ALU_result( 31 DOWNTO 0 )   WHEN MemtoReg(0) = '0' ELSE
 		read_data;
 
 	-- Sign Extend 16-bits to 32-bits, shift left
@@ -78,33 +78,33 @@ BEGIN
 			FOR i IN 0 TO 31 LOOP
 				register_array(i) <= CONV_STD_LOGIC_VECTOR( i, 32 );
 			END LOOP;
-			
+
 		-- When interrupt - write the current PC to register 27 ($k1)
-		ELSIF Instruction(31 DOWNTO 26) = "111111" THEN		-- opcode=31 means interrupt was recieved
+		ELSIF Instruction(31 DOWNTO 26) = "111111" THEN -- opcode=31 means interrupt was recieved
 			register_array( 27 ) <= X"00000" & B"0" & PC;
-			
+
 		-- Write back to register - don't write to register 0
 		ELSIF RegWrite = '1' AND write_register_address /= 0 THEN
 			register_array( CONV_INTEGER( write_register_address)) <= write_data;
 		END IF;
 	END PROCESS;
-	
+
 	GIE <= register_array(26)(0);
-	
+
 	-- -- calculate GIE from k0
 	-- PROCESS (clock, reset)
-		-- BEGIN
-			-- if reset = '1' then
-				-- GIE <= '0';
-			-- elsif rising_edge(clock) then
-				-- -- if we are writing to $k0
-				-- IF RegWrite = '1' AND write_register_address="011010" THEN
-					-- -- take $k0[0] as GIE
-					-- GIE <= write_data(0);
-				-- END IF;
-			-- end if;
+	-- BEGIN
+	-- if reset = '1' then
+	-- GIE <= '0';
+	-- elsif rising_edge(clock) then
+	-- -- if we are writing to $k0
+	-- IF RegWrite = '1' AND write_register_address="011010" THEN
+	-- -- take $k0[0] as GIE
+	-- GIE <= write_data(0);
+	-- END IF;
+	-- end if;
 	-- END PROCESS;
-	
+
 END behavior;
 
 

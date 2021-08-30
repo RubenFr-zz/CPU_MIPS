@@ -11,25 +11,22 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity UART_RX is
-    -- Generic (
-        -- CLK_DIV_VAL : integer := 16
-    -- );
     Port (
-        CLK          : in  std_logic; -- system clock
-        RST          : in  std_logic; -- high active synchronous reset
-        -- UART INTERFACE
-        UART_CLK_EN  : in  std_logic; -- oversampling (16x) UART clock enable
-        UART_RXD     : in  std_logic; -- serial receive data
-        -- USER DATA OUTPUT INTERFACE
+        CLK : in std_logic;                              -- system clock
+        RST : in std_logic;                              -- high active synchronous reset
+                                                         -- UART INTERFACE
+        UART_CLK_EN : in std_logic;                      -- oversampling (16x) UART clock enable
+        UART_RXD    : in std_logic;                      -- serial receive data
+                                                         -- USER DATA OUTPUT INTERFACE
         DOUT         : out std_logic_vector(7 downto 0); -- output data received via UART
-        DOUT_VLD     : out std_logic; -- when DOUT_VLD = 1, output data (DOUT) are valid without errors (is assert only for one clock cycle)
-        FRAME_ERROR  : out std_logic; -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
-        PARITY_ERROR : out std_logic;  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
-		
-		-- ADDED
-		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
-		RX_BUSY		 : out std_logic;
-		BAUD_RATE     : in std_logic -- baud rate value: 0 : 9600, 1: 115200
+        DOUT_VLD     : out std_logic;                    -- when DOUT_VLD = 1, output data (DOUT) are valid without errors (is assert only for one clock cycle)
+        FRAME_ERROR  : out std_logic;                    -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
+        PARITY_ERROR : out std_logic;                    -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
+
+        -- ADDED
+        PARITY_BIT : in  std_logic_vector(1 downto 0); -- type of parity: -0: "none", 01: "odd", 11: "even"
+        RX_BUSY    : out std_logic;
+        BAUD_RATE  : in  std_logic -- baud rate value: 0 : 9600, 1: 115200
     );
 end entity;
 
@@ -45,8 +42,8 @@ architecture RTL of UART_RX is
     signal fsm_idle           : std_logic;
     signal fsm_databits       : std_logic;
     signal fsm_stopbit        : std_logic;
-	
-	signal fsm_busy			  : std_logic;
+
+    signal fsm_busy : std_logic;
 
     type state is (idle, startbit, databits, paritybit, stopbit);
     signal fsm_pstate : state;
@@ -54,28 +51,24 @@ architecture RTL of UART_RX is
 
 begin
 
-	-- ADDED
-	RX_BUSY <= fsm_busy;
-	
+    -- ADDED
+    RX_BUSY <= fsm_busy;
+
     -- -------------------------------------------------------------------------
     -- UART RECEIVER CLOCK DIVIDER AND CLOCK ENABLE FLAG
     -- -------------------------------------------------------------------------
 
     rx_clk_divider_i : entity work.UART_CLK_DIV_RX
-    -- generic map(
-        -- DIV_MAX_VAL  => CLK_DIV_VAL,
-        -- DIV_MARK_POS => 3
-    -- )
-    port map (
-		
-		BAUD_RATE	=>			BAUD_RATE,
-	
-        CLK      => CLK,
-        RST      => RST,
-        CLEAR    => fsm_idle,
-        ENABLE   => UART_CLK_EN,
-        DIV_MARK => rx_clk_en
-    );
+        port map (
+
+            BAUD_RATE => BAUD_RATE,
+
+            CLK      => CLK,
+            RST      => RST,
+            CLEAR    => fsm_idle,
+            ENABLE   => UART_CLK_EN,
+            DIV_MARK => rx_clk_en
+        );
 
     -- -------------------------------------------------------------------------
     -- UART RECEIVER BIT COUNTER
@@ -114,53 +107,28 @@ begin
     -- -------------------------------------------------------------------------
     -- UART RECEIVER PARITY GENERATOR AND CHECK
     -- -------------------------------------------------------------------------
-	uart_rx_parity_gen_i: entity work.UART_PARITY
+    uart_rx_parity_gen_i : entity work.UART_PARITY
         generic map (
-            DATA_WIDTH  => 8            
+            DATA_WIDTH => 8
         )
         port map (
-			PARITY_TYPE => PARITY_BIT,
+            PARITY_TYPE => PARITY_BIT,
             DATA_IN     => rx_data,
             PARITY_OUT  => rx_parity_bit
         );
-	
-	uart_rx_parity_check_reg_p : process (CLK)
-        begin
-            if (rising_edge(CLK)) then
-                if (rx_clk_en = '1') then
-					if (PARITY_BIT(0) = '0') then 	-- PARITY_BIT = "none"
-						rx_parity_error <= '0';
-					else
-						rx_parity_error <= rx_parity_bit XOR UART_RXD;
-					end if;	
+
+    uart_rx_parity_check_reg_p : process (CLK)
+    begin
+        if (rising_edge(CLK)) then
+            if (rx_clk_en = '1') then
+                if (PARITY_BIT(0) = '0') then -- PARITY_BIT = "none"
+                    rx_parity_error <= '0';
+                else
+                    rx_parity_error <= rx_parity_bit XOR UART_RXD;
                 end if;
             end if;
-        end process;
-		
-    -- uart_rx_parity_g : if (PARITY_BIT /= "none") generate
-        -- uart_rx_parity_gen_i: entity work.UART_PARITY
-        -- generic map (
-            -- DATA_WIDTH  => 8            
-        -- )
-        -- port map (
-			-- PARITY_TYPE => PARITY_BIT,
-            -- DATA_IN     => rx_data,
-            -- PARITY_OUT  => rx_parity_bit
-        -- );
-
-        -- uart_rx_parity_check_reg_p : process (CLK)
-        -- begin
-            -- if (rising_edge(CLK)) then
-                -- if (rx_clk_en = '1') then
-                    -- rx_parity_error <= rx_parity_bit XOR UART_RXD;
-                -- end if;
-            -- end if;
-        -- end process;
-    -- end generate;
-
-    -- uart_rx_noparity_g : if (PARITY_BIT = "none") generate
-        -- rx_parity_error <= '0';
-    -- end generate;
+        end if;
+    end process;
 
     -- -------------------------------------------------------------------------
     -- UART RECEIVER OUTPUT REGISTER
@@ -208,9 +176,9 @@ begin
                 fsm_stopbit  <= '0';
                 fsm_databits <= '0';
                 fsm_idle     <= '1';
-				
-				-- ADDED
-				fsm_busy <= '1';
+
+                -- ADDED
+                fsm_busy <= '1';
 
                 if (UART_RXD = '0') then
                     fsm_nstate <= startbit;
@@ -223,8 +191,8 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
 
-				-- ADDED
-				fsm_busy <= '0';
+                -- ADDED
+                fsm_busy <= '0';
 
                 if (rx_clk_en = '1') then
                     fsm_nstate <= databits;
@@ -237,11 +205,11 @@ begin
                 fsm_databits <= '1';
                 fsm_idle     <= '0';
 
-				-- ADDED
-				fsm_busy <= '0';
+                -- ADDED
+                fsm_busy <= '0';
 
                 if ((rx_clk_en = '1') AND (rx_bit_count = "111")) then
-                    if (PARITY_BIT(0) = '0') then	
+                    if (PARITY_BIT(0) = '0') then
                         fsm_nstate <= stopbit;
                     else
                         fsm_nstate <= paritybit;
@@ -255,8 +223,8 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
 
-				-- ADDED
-				fsm_busy <= '0';
+                -- ADDED
+                fsm_busy <= '0';
 
                 if (rx_clk_en = '1') then
                     fsm_nstate <= stopbit;
@@ -269,8 +237,8 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
 
-				-- ADDED
-				fsm_busy <= '0';
+                -- ADDED
+                fsm_busy <= '0';
 
                 if (rx_clk_en = '1') then
                     fsm_nstate <= idle;
@@ -283,9 +251,9 @@ begin
                 fsm_databits <= '0';
                 fsm_idle     <= '0';
                 fsm_nstate   <= idle;
-				
-				-- ADDED
-				fsm_busy <= '0';
+
+                -- ADDED
+                fsm_busy <= '0';
 
 
         end case;

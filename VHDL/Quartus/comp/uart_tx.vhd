@@ -11,24 +11,21 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity UART_TX is
-    -- Generic (
-        -- CLK_DIV_VAL : integer := 16
-    -- );
     Port (
-        CLK         : in  std_logic; -- system clock
-        RST         : in  std_logic; -- high active synchronous reset
-        -- UART INTERFACE
-        UART_CLK_EN : in  std_logic; -- oversampling (16x) UART clock enable
-        UART_TXD    : out std_logic; -- serial transmit data
-        -- USER DATA INPUT INTERFACE
-        DIN         : in  std_logic_vector(7 downto 0); -- input data to be transmitted over UART
-        DIN_VLD     : in  std_logic; -- when DIN_VLD = 1, input data (DIN) are valid
-        DIN_RDY     : out std_logic;  -- when DIN_RDY = 1, transmitter is ready and valid input data will be accepted for transmiting
-		
-		-- Added
-		PARITY_BIT    : in std_logic_vector(1 downto 0); 	-- type of parity: -0: "none", 01: "odd", 11: "even"
-		DIN_FINISHED : out std_logic;	-- When TX finishes sending DIN
-		BAUD_RATE     : in std_logic -- baud rate value: 0 : 9600, 1: 115200
+        CLK : in std_logic;                         -- system clock
+        RST : in std_logic;                         -- high active synchronous reset
+                                                    -- UART INTERFACE
+        UART_CLK_EN : in  std_logic;                -- oversampling (16x) UART clock enable
+        UART_TXD    : out std_logic;                -- serial transmit data
+                                                    -- USER DATA INPUT INTERFACE
+        DIN     : in  std_logic_vector(7 downto 0); -- input data to be transmitted over UART
+        DIN_VLD : in  std_logic;                    -- when DIN_VLD = 1, input data (DIN) are valid
+        DIN_RDY : out std_logic;                    -- when DIN_RDY = 1, transmitter is ready and valid input data will be accepted for transmiting
+
+        -- Added
+        PARITY_BIT   : in  std_logic_vector(1 downto 0); -- type of parity: -0: "none", 01: "odd", 11: "even"
+        DIN_FINISHED : out std_logic;                    -- When TX finishes sending DIN
+        BAUD_RATE    : in  std_logic                     -- baud rate value: 0 : 9600, 1: 115200
     );
 end entity;
 
@@ -42,9 +39,9 @@ architecture RTL of UART_TX is
     signal tx_ready        : std_logic;
     signal tx_parity_bit   : std_logic;
     signal tx_data_out_sel : std_logic_vector(1 downto 0);
-    
-	-- Added
-	signal tx_finished 	   : std_logic;
+
+    -- Added
+    signal tx_finished : std_logic;
 
     type state is (idle, txsync, startbit, databits, paritybit, stopbit, finished);
     signal tx_pstate : state;
@@ -52,28 +49,24 @@ architecture RTL of UART_TX is
 
 begin
 
-    DIN_RDY <= tx_ready;
-	DIN_FINISHED <= tx_finished;
+    DIN_RDY      <= tx_ready;
+    DIN_FINISHED <= tx_finished;
 
     -- -------------------------------------------------------------------------
     -- UART TRANSMITTER CLOCK DIVIDER AND CLOCK ENABLE FLAG
     -- -------------------------------------------------------------------------
 
     tx_clk_divider_i : entity work.UART_CLK_DIV_TX
-    -- generic map(
-        -- DIV_MAX_VAL  => CLK_DIV_VAL,
-        -- DIV_MARK_POS => 1
-    -- )
-    port map (
-	
-		BAUD_RATE	=>			BAUD_RATE,
-	
-        CLK      => CLK,
-        RST      => RST,
-        CLEAR    => tx_clk_div_clr,
-        ENABLE   => UART_CLK_EN,
-        DIV_MARK => tx_clk_en
-    );
+        port map (
+
+            BAUD_RATE => BAUD_RATE,
+
+            CLK      => CLK,
+            RST      => RST,
+            CLEAR    => tx_clk_div_clr,
+            ENABLE   => UART_CLK_EN,
+            DIV_MARK => tx_clk_en
+        );
 
     -- -------------------------------------------------------------------------
     -- UART TRANSMITTER INPUT DATA REGISTER
@@ -111,31 +104,15 @@ begin
     -- UART TRANSMITTER PARITY GENERATOR
     -- -------------------------------------------------------------------------
 
-    uart_tx_parity_gen_i: entity work.UART_PARITY
+    uart_tx_parity_gen_i : entity work.UART_PARITY
         generic map (
-            DATA_WIDTH  => 8
+            DATA_WIDTH => 8
         )
         port map (
-			PARITY_TYPE => PARITY_BIT,
+            PARITY_TYPE => PARITY_BIT,
             DATA_IN     => tx_data,
             PARITY_OUT  => tx_parity_bit
         );
-
-    -- uart_tx_parity_g : if (PARITY_BIT /= "none") generate
-        -- uart_tx_parity_gen_i: entity work.UART_PARITY
-        -- generic map (
-            -- DATA_WIDTH  => 8,
-            -- PARITY_TYPE => PARITY_BIT
-        -- )
-        -- port map (
-            -- DATA_IN     => tx_data,
-            -- PARITY_OUT  => tx_parity_bit
-        -- );
-    -- end generate;
-
-    -- uart_tx_noparity_g : if (PARITY_BIT = "none") generate
-        -- tx_parity_bit <= '0';
-    -- end generate;
 
     -- -------------------------------------------------------------------------
     -- UART TRANSMITTER OUTPUT DATA REGISTER
@@ -184,13 +161,13 @@ begin
         case tx_pstate is
 
             when idle =>
-                tx_ready <= '1';
+                tx_ready        <= '1';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '1';
-				
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '1';
+
+                -- Added
+                tx_finished <= '0';
 
                 if (DIN_VLD = '1') then
                     tx_nstate <= txsync;
@@ -199,13 +176,13 @@ begin
                 end if;
 
             when txsync =>
-                tx_ready <= '0';
+                tx_ready        <= '0';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '0';
+
+                -- Added
+                tx_finished <= '0';
 
                 if (tx_clk_en = '1') then
                     tx_nstate <= startbit;
@@ -214,13 +191,13 @@ begin
                 end if;
 
             when startbit =>
-                tx_ready <= '0';
+                tx_ready        <= '0';
                 tx_data_out_sel <= "01";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '0';
+
+                -- Added
+                tx_finished <= '0';
 
                 if (tx_clk_en = '1') then
                     tx_nstate <= databits;
@@ -229,16 +206,16 @@ begin
                 end if;
 
             when databits =>
-                tx_ready <= '0';
+                tx_ready        <= '0';
                 tx_data_out_sel <= "10";
                 tx_bit_count_en <= '1';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '0';
+
+                -- Added
+                tx_finished <= '0';
 
                 if ((tx_clk_en = '1') AND (tx_bit_count = "111")) then
-                    if (PARITY_BIT(0) = '0') then	-- PARITY_BIT = "none"
+                    if (PARITY_BIT(0) = '0') then -- PARITY_BIT = "none"
                         tx_nstate <= stopbit;
                     else
                         tx_nstate <= paritybit;
@@ -248,13 +225,13 @@ begin
                 end if;
 
             when paritybit =>
-                tx_ready <= '0';
+                tx_ready        <= '0';
                 tx_data_out_sel <= "11";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '0';
+
+                -- Added
+                tx_finished <= '0';
 
                 if (tx_clk_en = '1') then
                     tx_nstate <= stopbit;
@@ -263,48 +240,46 @@ begin
                 end if;
 
             when stopbit =>
-                tx_ready <= '0';
+                tx_ready        <= '0';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '0';
 
-                -- if (DIN_VLD = '1') then
-                    -- tx_nstate <= txsync;
+                -- Added
+                tx_finished <= '0';
+
                 if (tx_clk_en = '1') then
                     tx_nstate <= finished;
                 else
                     tx_nstate <= stopbit;
                 end if;
 
-			when finished =>
-				tx_ready <= '1';
+            when finished =>
+                tx_ready        <= '1';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-	
-				-- Added
-				tx_finished <= '1';
-				
-				if (DIN_VLD = '1') then
+                tx_clk_div_clr  <= '0';
+
+                -- Added
+                tx_finished <= '1';
+
+                if (DIN_VLD = '1') then
                     tx_nstate <= txsync;
-				elsif (tx_clk_en = '1') then
+                elsif (tx_clk_en = '1') then
                     tx_nstate <= idle;
                 else
                     tx_nstate <= finished;
                 end if;
-			
+
             when others =>
-                tx_ready <= '0';
+                tx_ready        <= '0';
                 tx_data_out_sel <= "00";
                 tx_bit_count_en <= '0';
-                tx_clk_div_clr <= '0';
-                tx_nstate <= idle;
-					 
-				-- Added
-				tx_finished <= '0';
+                tx_clk_div_clr  <= '0';
+                tx_nstate       <= idle;
+
+                -- Added
+                tx_finished <= '0';
 
         end case;
     end process;

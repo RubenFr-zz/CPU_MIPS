@@ -84,57 +84,57 @@ BEGIN
 		ctl_I_format WHEN ALUOp = "11" ELSE -- immediate
 		"ZZZ";
 
-		-- Generate Zero Flag
-		Zero <= '1' WHEN ALU_output_mux( 31 DOWNTO 0 ) = X"00000000" ELSE '0';
+	-- Generate Zero Flag
+	Zero <= '1' WHEN ALU_output_mux( 31 DOWNTO 0 ) = X"00000000" ELSE '0';
 
-		-- Adder to compute Branch Address
-		Branch_Add <= PC_plus_4( 10 DOWNTO 2 ) + sign_extend( 8 DOWNTO 0 ) ;
-		Add_result <= 
-			Branch_Add( 8 DOWNTO 0 ) WHEN ALUOp = "01" ELSE -- br
-			sign_extend( 8 DOWNTO 0 ); -- jump
+	-- Adder to compute Branch Address
+	Branch_Add <= PC_plus_4( 10 DOWNTO 2 ) + sign_extend( 8 DOWNTO 0 ) ;
+	Add_result <=
+		Branch_Add( 8 DOWNTO 0 ) WHEN ALUOp = "01" ELSE -- br
+		sign_extend( 8 DOWNTO 0 );                      -- jump
 
-		-- Shamt for sll and srl
-		shamt <= sign_extend( 10 DOWNTO 6);
+	-- Shamt for sll and srl
+	shamt <= sign_extend( 10 DOWNTO 6);
 
-		-- Select ALU output        
-		ALU_result <=
-			X"0000000" & B"000" & ALU_output_mux(31) WHEN ALU_ctl = "111" ELSE
-			shifted_out                              WHEN ALUOp = "10" AND (function_opcode = "000000" OR function_opcode = "000010") ELSE
-			ALU_output_mux( 31 DOWNTO 0 );
+	-- Select ALU output        
+	ALU_result <=
+		X"0000000" & B"000" & ALU_output_mux(31) WHEN ALU_ctl = "111" ELSE
+		shifted_out                              WHEN ALUOp = "10" AND (function_opcode = "000000" OR function_opcode = "000010") ELSE
+		ALU_output_mux( 31 DOWNTO 0 );
 
-		-------------------------------------------------------------------------	
-		PROCESS ( ALU_ctl, Ainput, Binput )
-			VARIABLE mult : STD_LOGIC_VECTOR( 63 DOWNTO 0 );
-		BEGIN
-			-- Select ALU operation
-			CASE ALU_ctl IS
-				-- ALU performs ALUresult = A_input AND B_input
-				WHEN "000" => ALU_output_mux <= Ainput AND Binput;
+	-------------------------------------------------------------------------	
+	PROCESS ( ALU_ctl, Ainput, Binput )
+		VARIABLE mult : STD_LOGIC_VECTOR( 63 DOWNTO 0 );
+	BEGIN
+		-- Select ALU operation
+		CASE ALU_ctl IS
+			-- ALU performs ALUresult = A_input AND B_input
+			WHEN "000" => ALU_output_mux <= Ainput AND Binput;
 
-				-- ALU performs ALUresult = A_input OR B_input
-				WHEN "001" => ALU_output_mux <= Ainput OR Binput;
+			-- ALU performs ALUresult = A_input OR B_input
+			WHEN "001" => ALU_output_mux <= Ainput OR Binput;
 
-				-- ALU performs ALUresult = A_input + B_input
-				WHEN "010" => ALU_output_mux <= Ainput + Binput;
+			-- ALU performs ALUresult = A_input + B_input
+			WHEN "010" => ALU_output_mux <= Ainput + Binput;
 
-				-- ALU performs ADDU
-				WHEN "011" => ALU_output_mux <= UNSIGNED(Ainput) + UNSIGNED(Binput);
+			-- ALU performs ADDU
+			WHEN "011" => ALU_output_mux <= UNSIGNED(Ainput) + UNSIGNED(Binput);
 
-				-- ALU performs XOR
-				WHEN "100" => ALU_output_mux <= Ainput XOR Binput;
+			-- ALU performs XOR
+			WHEN "100" => ALU_output_mux <= Ainput XOR Binput;
 
-				-- ALU performs MUL
-				WHEN "101" => 
-					mult           := Ainput * Binput;
-					ALU_output_mux <= mult( 31 DOWNTO 0 );
+			-- ALU performs MUL
+			WHEN "101" =>
+				mult           := Ainput * Binput;
+				ALU_output_mux <= mult( 31 DOWNTO 0 );
 
-				-- ALU performs ALUresult = A_input -B_input
-				WHEN "110" => ALU_output_mux <= Ainput - Binput;
+			-- ALU performs ALUresult = A_input -B_input
+			WHEN "110" => ALU_output_mux <= Ainput - Binput;
 
-				-- ALU performs SLT
-				WHEN "111" => ALU_output_mux <= Ainput - Binput ;
+			-- ALU performs SLT
+			WHEN "111" => ALU_output_mux <= Ainput - Binput ;
 
-				WHEN OTHERS => ALU_output_mux <= X"00000000" ;
-			END CASE;
-		END PROCESS;
-		END behavior;
+			WHEN OTHERS => ALU_output_mux <= X"00000000" ;
+		END CASE;
+	END PROCESS;
+END behavior;

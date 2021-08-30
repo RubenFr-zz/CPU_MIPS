@@ -55,7 +55,7 @@ begin
 		MCLK8 when BTSSEL = "11" else '0';
 
 	next_counter <=
-		BTCNT   when FLAG = '1' else
+		BTCNT when FLAG = '1' else
 		BTCNT when BTHOLD = '1' else
 		counter + '1';
 
