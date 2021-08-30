@@ -6,22 +6,25 @@ USE IEEE.STD_LOGIC_ARITH.ALL;
 ENTITY MIPS IS
 
 	PORT(
-		rst_in          : IN  STD_LOGIC;
-		clk_24MHz       : IN  STD_LOGIC;
-		SW   			: IN  STD_LOGIC_VECTOR (7 DOWNTO 0);
-		KEY	 			: IN  STD_LOGIC_VECTOR (2 DOWNTO 0);
-		LEDG 			: OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
-		LEDR 			: OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
-		HEX0 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX1 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX2 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0); -- converted to 7-seg	
+		-- Clock
+		clk_24MHz : IN STD_LOGIC;
+
+		-- GPIO
+		SW   : IN  STD_LOGIC_VECTOR (7 DOWNTO 0);
+		KEY  : IN  STD_LOGIC_VECTOR (3 DOWNTO 0); -- KEY[3], KEY[2], KEY[1], RESET
+		LEDG : OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
+		LEDR : OUT STD_LOGIC_VECTOR (7 DOWNTO 0);
+		HEX0 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);    -- converted to 7-seg
+		HEX1 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);    -- converted to 7-seg
+		HEX2 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0);    -- converted to 7-seg
+		HEX3 : OUT STD_LOGIC_VECTOR (6 DOWNTO 0); -- converted to 7-seg	
+
 		-- UART INTERFACE
-        UART_TXD     : out std_logic; -- serial transmit data
-        UART_RXD     : in  std_logic; -- serial receive data
-		
+		UART_TXD : out std_logic; -- serial transmit data
+		UART_RXD : in  std_logic; -- serial receive data
+
 		-- Debug
-		LEDR8, LEDR9			: OUT STD_LOGIC
+		LEDR8, LEDR9 : OUT STD_LOGIC
 	);
 END MIPS;
 
@@ -138,31 +141,36 @@ ARCHITECTURE structure OF MIPS IS
 	END COMPONENT;
 	
 	COMPONENT InterruptController is
-	port (
-		-- Interrupt Request (Hardware)
-		RX_irq   : in std_logic; -- RX interrupt request (HW)
-		TX_irq   : in std_logic; -- TX interrupt request (HW)
-		BT_irq   : in std_logic; -- Basic Timer interrupt request (HW)
-		KEY1_irq : in std_logic; -- KEY1 interrupt request (HW)
-		KEY2_irq : in std_logic; -- KEY2 interrupt request (HW)
-		KEY3_irq : in std_logic; -- KEY3 interrupt request (HW)
+		port (
+			-- Reset
+			RST_irq : in  std_logic;
+			reset   : out std_logic;
 
-		-- Interrupt Registers
-		GIE       : in  std_logic;                     -- Global Interrupt Enable (SW) -> $k0(0)
-		IE        : in  std_logic_vector (5 downto 0); -- Interrupt Enable Register (SW)
-		IFG_in       : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
-		IFG_out       : out  std_logic_vector (7 downto 0); -- Interrupt Flag Register (SW)
-		IFG_write : in  std_logic;                     -- Data in IFG ready to be used
-		TYPEx    : out std_logic_vector (8 downto 0); -- Type Register
+			-- Interrupt Request (Hardware)
+			RX_irq   : in std_logic; -- RX interrupt request
+			TX_irq   : in std_logic; -- TX interrupt request
+			BT_irq   : in std_logic; -- Basic Timer interrupt request
+			KEY1_irq : in std_logic; -- KEY1 interrupt request
+			KEY2_irq : in std_logic; -- KEY2 interrupt request
+			KEY3_irq : in std_logic; -- KEY3 interrupt request
 
-		-- CPU
-		INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
-		INTR : out std_logic;  -- Interrupt request
-		
-		-- Clear Flag 
-		clr_BT, clr_RX, clr_TX : in boolean
-		-- clr_KEY1, clr_KEY2, clr_KEY3 : in boolean
-	);
+			-- Interrupt Registers
+			GIE       : in  std_logic;                     -- Global Interrupt Enable (SW) -> $k0(0)
+			IE        : in  std_logic_vector (5 downto 0); -- Interrupt Enable Register (SW)
+			IFG_in    : in  std_logic_vector (5 downto 0); -- Interrupt Flag Register (SW)
+			IFG_out   : out std_logic_vector (7 downto 0); -- Interrupt Flag Register (SW)
+			IFG_write : in  std_logic;                     -- Data in IFG ready to be used
+			TYPEx     : out std_logic_vector (8 downto 0); -- Type Register
+
+			-- CPU
+			INTA : in  std_logic; -- '0': ACK (Interrupt Acknolwdge)
+			INTR : out std_logic; -- Interrupt request
+
+			-- Clear Flag 
+			clr_BT : in boolean;
+			clr_RX : in boolean;
+			clr_TX : in boolean
+		);
 	end COMPONENT InterruptController;
 	
 	
@@ -177,7 +185,7 @@ ARCHITECTURE structure OF MIPS IS
 	
 	COMPONENT UART is
     Generic (
-        CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
+        --CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
         -- BAUD_RATE     : integer := 115200; -- baud rate value
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
     );
@@ -470,28 +478,30 @@ BEGIN
 		
 	IntrptControl : InterruptController
 		PORT MAP (
-			RX_irq   		=>	RX_irq,		-- When RX_irq is set, that means the Receiver buffer is full
-		    TX_irq          =>	TX_irq,		-- When TX_RDY is set, that means the transmitter finished sending
-		    BT_irq          =>	TimerFlag,
-		    KEY1_irq        =>	not KEY(0),
-		    KEY2_irq        =>  not KEY(1),
-		    KEY3_irq        =>  not KEY(2),
-		    GIE             =>	GIE,
-		    IE              =>	IE_reg(5 DOWNTO 0),
-		    IFG_in          =>	IFG_in(5 DOWNTO 0),
-		    IFG_out         =>	IFG_out,
-		    IFG_write       =>	IFG_write,
-		    TYPEx           =>	TYPE_reg,
-		    INTA 	        =>	INTA,
-		    INTR 	        =>	INTR,
-		
-			clr_BT			=> clr_BT,
-			clr_RX			=> clr_RX,
-			clr_TX			=> clr_TX
+			RST_irq => not KEY(0),
+			reset   => rst,
+
+			RX_irq    => RX_irq, -- RX Buffer is full
+			TX_irq    => TX_irq, -- TX finished sending
+			BT_irq    => TimerFlag,
+			KEY1_irq  => not KEY(1),
+			KEY2_irq  => not KEY(2),
+			KEY3_irq  => not KEY(3),
+			GIE       => GIE,
+			IE        => IE_reg(5 DOWNTO 0),
+			IFG_in    => IFG_in(5 DOWNTO 0),
+			IFG_out   => IFG_out,
+			IFG_write => IFG_write,
+			TYPEx     => TYPE_reg,
+			INTA      => INTA,
+			INTR      => INTR,
+
+			clr_BT => clr_BT,
+			clr_RX => clr_RX,
+			clr_TX => clr_TX
 			-- clr_KEY1		=> clr_KEY1,
 			-- clr_KEY2		=> clr_KEY2,
 			-- clr_KEY3		=> clr_KEY3
-			
 		);
 
 	Timer : BasicTimer
@@ -504,13 +514,13 @@ BEGIN
 	);
 	
 	UART_inst : UART
-	GENERIC MAP(
-        CLK_FREQ      => 12e6   -- system clock frequency in Hz
-	)
+	-- GENERIC MAP(
+        -- CLK_FREQ      => 12e6   -- system clock frequency in Hz
+	-- )
 	PORT MAP(
         -- CLOCK AND RESET
         CLK      => clk,    
-        RST      => rst,   
+        RST      => rst OR UCTL_reg(0), 
         -- UART INTERFACE
         UART_TXD     => UART_TXD,
         UART_RXD     => UART_RXD,
@@ -572,7 +582,7 @@ BEGIN
 	read_data <= X"0000000" & HEX3_reg 		WHEN HEX3_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- HEX3
 	
 	-- read data from keys when required
-	read_data <= X"0000000" & B"0" & KEY 	WHEN KEY_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- KEY
+	read_data <= X"0000000" & KEY 	WHEN KEY_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- KEY
 	
 	-- read data from UART when required
 	read_data <= X"000000" & UCTL_reg 		WHEN UCTL_ena = '1' AND MemRead = '1' ELSE (OTHERS  => 'Z');       	 -- UCTL
@@ -647,7 +657,7 @@ BEGIN
 	end process;
 	
 	MEM_IO     <= ALU_Result(11); -- Read from 0: Memory, 1: IO (ALU_Result doesn't start with 8)
-	write_to_memory_ena <= MemWrite AND (NOT MEM_IO) AND rst_in;
+	write_to_memory_ena <= MemWrite AND (NOT MEM_IO) AND (NOT rst);
 
 	LEDG <= LEDG_reg;
 	LEDR <= LEDR_reg;
@@ -658,10 +668,6 @@ BEGIN
 	
 	BUSY_UCTL <= TX_RDY or RX_BUSY;
 	
-	-- PARITY_BIT <=
-		-- "none" when UCTL_reg(1) = '0' else
-		-- "odd" when UCTL_reg(2) = '0' else
-		-- "even";
 	
 	-- If we are handling a rx interrupt and also a new rx interrupt was received, set uart overrun flag
 	process(RX_irq,rst)
@@ -673,9 +679,7 @@ BEGIN
 		end if;
 	end process;
 	
-	
-	
-	rst <= not rst_in;
+	-- rst <= not rst_in;
 
 	clr_RX <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000001000") or rst = '1';
 	clr_TX <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000001100") or rst = '1';
