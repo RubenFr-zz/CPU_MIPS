@@ -52,10 +52,7 @@ BEGIN
 	----------------------------------------------------------------------------
 
 	-- Instruction select - if interrupt is '1' then opcode=31, else the fetched one
-	Instruction <= X"FC000000" WHEN INTR = '1'
-	ELSE Instruct;
-
-
+	Instruction <= X"FC000000" WHEN INTR = '1' ELSE Instruct;
 
 	-- Instructions always start on word address - not byte
 	PC(1 DOWNTO 0) <= "00";
@@ -74,7 +71,6 @@ BEGIN
 	-- Mux to select Branch Address or PC + 4        
 	Next_PC <=
 		'0' & X"00" WHEN Reset = '1' ELSE
-		-- ISR_address				  WHEN (INTR = '1'  and INTA = '0') or (INTR_OLD = '1')	 ELSE 		-- Choose the address of the ISR WHEN INTR='1'
 		ISR_address                WHEN INTR_OLD = '1' ELSE                                                                                   -- Choose the address of the ISR WHEN INTR='1'
 		PC(10 DOWNTO 2)            WHEN (INTR = '1') ELSE                                                                                     --KEEP PC WHEN FIRST ENCOUNTERING INTERRUPT
 		Add_result                 WHEN ((Branch = '1') AND (Zero = '1') AND (Instruct(31 DOWNTO 26) = "000100")) ELSE                        --beq

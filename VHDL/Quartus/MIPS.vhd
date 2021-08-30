@@ -185,8 +185,6 @@ ARCHITECTURE structure OF MIPS IS
 
 	COMPONENT UART is
 		Generic (
-			--CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
-			-- BAUD_RATE     : integer := 115200; -- baud rate value
 			USE_DEBOUNCER : boolean := True -- enable/disable debouncer
 		);
 		Port (
@@ -213,32 +211,6 @@ ARCHITECTURE structure OF MIPS IS
 			RX_BUSY      : out std_logic
 		);
 	end COMPONENT UART;
-
-	-- COMPONENT UART is
-	-- Generic (
-	-- CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
-	-- BAUD_RATE     : integer := 115200; -- baud rate value
-	-- PARITY_BIT    : string  := "none"; -- type of parity: "none", "even", "odd", "mark", "space"
-	-- USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
-	-- );
-	-- Port (
-	-- -- CLOCK AND RESET
-	-- CLK          : in  std_logic; -- system clock
-	-- RST          : in  std_logic; -- high active synchronous reset
-	-- -- UART INTERFACE
-	-- UART_TXD     : out std_logic; -- serial transmit data
-	-- UART_RXD     : in  std_logic; -- serial receive data
-	-- -- USER DATA INPUT INTERFACE
-	-- DIN          : in  std_logic_vector(7 downto 0); -- input data to be transmitted over UART
-	-- DIN_VLD      : in  std_logic; -- when DIN_VLD = 1, input data (DIN) are valid
-	-- DIN_RDY      : out std_logic; -- when DIN_RDY = 1, transmitter is ready and valid input data will be accepted for transmiting
-	-- -- USER DATA OUTPUT INTERFACE
-	-- DOUT         : out std_logic_vector(7 downto 0); -- output data received via UART
-	-- DOUT_VLD     : out std_logic; -- when DOUT_VLD = 1, output data (DOUT) are valid (is assert only for one clock cycle)
-	-- FRAME_ERROR  : out std_logic; -- when FRAME_ERROR = 1, stop bit was invalid (is assert only for one clock cycle)
-	-- PARITY_ERROR : out std_logic  -- when PARITY_ERROR = 1, parity bit was invalid (is assert only for one clock cycle)
-	-- );
-	-- end COMPONENT;
 
 	----------------------------------------------------------------------------
 	-- SIGNAL ADDED
@@ -319,11 +291,8 @@ ARCHITECTURE structure OF MIPS IS
 
 	-- Added signals for UART support
 
-	SIGNAL TX_VLD,TX_RDY  : STD_LOGIC;
-	SIGNAL RX_irq, TX_irq : STD_LOGIC := '0';
-	-- SIGNAL BAUD_RATE     : integer;
-	-- SIGNAL PARITY_BIT    : std_logic_vector ( 1 downto 0 ); 
-	-- SIGNAL rst_UART		: std_LOGIC;
+	SIGNAL TX_VLD,TX_RDY      : STD_LOGIC;
+	SIGNAL RX_irq, TX_irq     : STD_LOGIC := '0';
 	SIGNAL BUSY_UCTL, OE_UCTL : STD_LOGIC := '0';
 	SIGNAL RX_BUSY            : STD_LOGIC;
 
@@ -331,8 +300,7 @@ ARCHITECTURE structure OF MIPS IS
 	signal clr_BT : boolean := false;
 	signal clr_RX : boolean := false;
 	signal clr_TX : boolean := false;
-	-- signal clr_KEY1, clr_KEY2, clr_KEY3 : boolean := false;
-
+	
 
 BEGIN
 	-- make sure next address is ISR address in case of interrupt, or normal address otherwise
@@ -625,7 +593,6 @@ BEGIN
 	LEDG <= LEDG_reg;
 	LEDR <= LEDR_reg;
 
-
 	UCTL_reg(6) <= OE_UCTL;
 	UCTL_reg(7) <= BUSY_UCTL;
 
@@ -641,8 +608,6 @@ BEGIN
 			OE_UCTL <= IFG_out(0);
 		end if;
 	end process;
-
-	-- rst <= not rst_in;
 
 	clr_RX <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000001000") or rst = '1';
 	clr_TX <= (INTRx = '0' and INTA = '0' and TYPE_reg = "000001100") or rst = '1';
