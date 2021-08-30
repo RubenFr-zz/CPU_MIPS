@@ -18,7 +18,7 @@ use IEEE.MATH_REAL.ALL;
 
 entity UART is
     Generic (
-        CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
+        --CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
     );
     Port (
