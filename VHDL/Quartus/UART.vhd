@@ -18,7 +18,6 @@ use IEEE.MATH_REAL.ALL;
 
 entity UART is
     Generic (
-        --CLK_FREQ      : integer := 50e6;   -- system clock frequency in Hz
         USE_DEBOUNCER : boolean := True    -- enable/disable debouncer
     );
     Port (
@@ -70,10 +69,6 @@ begin
     -- -------------------------------------------------------------------------
 
     os_clk_divider_i : entity work.UART_CLK_DIV_MAIN
-    -- generic map(
-        -- DIV_MAX_VAL  => OS_CLK_DIV_VAL,
-        -- DIV_MARK_POS => OS_CLK_DIV_VAL-1
-    -- )
     port map (
 
 		BAUD_RATE	=>			BAUD_RATE,

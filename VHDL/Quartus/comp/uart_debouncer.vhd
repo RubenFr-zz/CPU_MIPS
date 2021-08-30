@@ -43,7 +43,7 @@ begin
 
     -- output register will be reset when all compared bits are low
     output_reg_rst_p : process (DEB_IN, input_shreg)
-        variable or_var : std_logic;
+        variable or_var  : std_logic;
     begin
         or_var := DEB_IN;
         all_bits_or_l : for i in 0 to SHREG_DEPTH-1 loop

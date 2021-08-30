@@ -15,7 +15,7 @@ ENTITY MIPS IS
 		HEX0 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
 		HEX1 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
 		HEX2 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0);   -- converted to 7-seg
-		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0) -- converted to 7-seg	
+		HEX3 			: OUT STD_LOGIC_VECTOR (6 DOWNTO 0); -- converted to 7-seg	
 	);
 END MIPS;
 

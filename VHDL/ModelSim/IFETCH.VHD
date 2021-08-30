@@ -43,7 +43,7 @@ BEGIN
 			widthad_a              => 8,
 			lpm_type               => "altsyncram",
 			outdata_reg_a          => "UNREGISTERED",
-			init_file              => "C:\final_lab_cpu\developement\stuff from moodle\test3\program.hex",
+			init_file              => "Test3\program.hex",
 			intended_device_family => "Cyclone"
 		)
 		PORT MAP (
